@@ -24,6 +24,34 @@ clippy:
 		-A clippy::missing_panics_doc \
 		-A clippy::missing_docs_in_private_items \
 		-A clippy::missing_const_for_fn
+	cargo clippy --tests -- \
+		-D clippy::all \
+		-D clippy::pedantic \
+		-D clippy::nursery \
+		-D clippy::cargo \
+		-A clippy::module_name_repetitions \
+		-A clippy::must_use_candidate \
+		-A clippy::missing_errors_doc \
+		-A clippy::missing_panics_doc \
+		-A clippy::missing_docs_in_private_items \
+		-A clippy::missing_const_for_fn
+	cargo clippy --examples -- \
+		-D clippy::all \
+		-D clippy::pedantic \
+		-D clippy::nursery \
+		-D clippy::cargo \
+		-A clippy::module_name_repetitions \
+		-A clippy::must_use_candidate \
+		-A clippy::missing_errors_doc \
+		-A clippy::missing_panics_doc \
+		-A clippy::missing_docs_in_private_items \
+		-A clippy::missing_const_for_fn \
+		-A clippy::uninlined_format_args \
+		-A clippy::map_unwrap_or \
+		-A clippy::manual_let_else \
+		-A clippy::needless_collect \
+		-A clippy::single_match_else \
+		-A clippy::option_if_let_else
 
 # Run clippy and fix what can be fixed automatically
 clippy-fix:

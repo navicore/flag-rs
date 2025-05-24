@@ -152,7 +152,7 @@ mod tests {
         assert!(int_val.as_float().is_err());
 
         let float_val = FlagValue::Float(PI);
-        assert_eq!(float_val.as_float().unwrap(), PI);
+        assert!((float_val.as_float().unwrap() - PI).abs() < f64::EPSILON);
         assert!(float_val.as_int().is_err());
 
         let slice_val = FlagValue::StringSlice(vec!["a".to_string(), "b".to_string()]);

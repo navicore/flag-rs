@@ -767,8 +767,7 @@ mod tests {
                     vec!["file1.txt", "file2.txt", "folder/"]
                         .into_iter()
                         .filter(|f| f.starts_with(prefix))
-                        .map(String::from)
-                        .collect::<Vec<_>>(),
+                        .map(String::from),
                 ))
             })
             .flag_completion("type", |_ctx, prefix| {
@@ -776,8 +775,7 @@ mod tests {
                     vec!["json", "yaml", "xml"]
                         .into_iter()
                         .filter(|t| t.starts_with(prefix))
-                        .map(String::from)
-                        .collect::<Vec<_>>(),
+                        .map(String::from),
                 ))
             })
             .build();

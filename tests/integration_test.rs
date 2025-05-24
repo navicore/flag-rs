@@ -27,7 +27,7 @@ fn test_complex_cli_app() {
         "Initial commit".to_string(),
     ]);
     if let Err(e) = &result {
-        eprintln!("Commit test failed with: {}", e);
+        eprintln!("Commit test failed with: {e}");
     }
     assert!(result.is_ok());
 }
@@ -52,7 +52,7 @@ fn build_clone_command() -> Command {
         .short("Clone a repository into a new directory")
         .run(|ctx| {
             if let Some(url) = ctx.args().first() {
-                println!("Cloning from: {}", url);
+                println!("Cloning from: {url}");
             }
             Ok(())
         })
@@ -70,7 +70,7 @@ fn build_commit_command() -> Command {
         )
         .run(|ctx| {
             if let Some(message) = ctx.flag("message") {
-                println!("Committing with message: {}", message);
+                println!("Committing with message: {message}");
             }
             Ok(())
         })
@@ -82,7 +82,7 @@ fn build_status_command() -> Command {
         .short("Show the working tree status")
         .run(|ctx| {
             if let Some(work_tree) = ctx.flag("work-tree") {
-                println!("Checking status in: {}", work_tree);
+                println!("Checking status in: {work_tree}");
             } else {
                 println!("Checking status in current directory");
             }
@@ -110,8 +110,7 @@ fn test_dynamic_completion() {
                             Ok(CompletionResult::new().extend(
                                 pods.into_iter()
                                     .filter(|p| p.starts_with(prefix))
-                                    .map(String::from)
-                                    .collect::<Vec<_>>(),
+                                    .map(String::from),
                             ))
                         })
                         .build(),

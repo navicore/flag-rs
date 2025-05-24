@@ -6,7 +6,7 @@ fn main() {
 
     let args: Vec<String> = env::args().skip(1).collect();
     if let Err(e) = app.execute(args) {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
         std::process::exit(1);
     }
 }
@@ -29,12 +29,8 @@ fn build_kubectl() -> Command {
         .flag_completion("namespace", |_ctx, prefix| {
             // In a real kubectl, this would query the API server
             let namespaces = get_namespaces();
-            Ok(CompletionResult::new().extend(
-                namespaces
-                    .into_iter()
-                    .filter(|ns| ns.starts_with(prefix))
-                    .collect::<Vec<_>>(),
-            ))
+            Ok(CompletionResult::new()
+                .extend(namespaces.into_iter().filter(|ns| ns.starts_with(prefix))))
         })
         .build()
 }
@@ -57,27 +53,24 @@ fn build_get_pods() -> Command {
             // This is the key feature - dynamic completion based on runtime state!
             let namespace = ctx
                 .flag("namespace")
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .unwrap_or("default");
 
             // In real kubectl, this would query the K8s API
             let pods = get_pods_in_namespace(namespace);
-            Ok(CompletionResult::new().extend(
-                pods.into_iter()
-                    .filter(|pod| pod.starts_with(prefix))
-                    .collect::<Vec<_>>(),
-            ))
+            Ok(CompletionResult::new()
+                .extend(pods.into_iter().filter(|pod| pod.starts_with(prefix))))
         })
         .run(|ctx| {
             let namespace = ctx
                 .flag("namespace")
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .unwrap_or("default");
 
-            println!("Listing pods in namespace: {}", namespace);
+            println!("Listing pods in namespace: {namespace}");
 
             if let Some(pod_name) = ctx.args().first() {
-                println!("Getting specific pod: {}", pod_name);
+                println!("Getting specific pod: {pod_name}");
             } else {
                 for pod in get_pods_in_namespace(namespace) {
                     println!("pod/{}", pod);
@@ -96,24 +89,20 @@ fn build_get_services() -> Command {
         .arg_completion(|ctx, prefix| {
             let namespace = ctx
                 .flag("namespace")
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .unwrap_or("default");
 
             let services = get_services_in_namespace(namespace);
-            Ok(CompletionResult::new().extend(
-                services
-                    .into_iter()
-                    .filter(|svc| svc.starts_with(prefix))
-                    .collect::<Vec<_>>(),
-            ))
+            Ok(CompletionResult::new()
+                .extend(services.into_iter().filter(|svc| svc.starts_with(prefix))))
         })
         .run(|ctx| {
             let namespace = ctx
                 .flag("namespace")
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .unwrap_or("default");
 
-            println!("Listing services in namespace: {}", namespace);
+            println!("Listing services in namespace: {namespace}");
             Ok(())
         })
         .build()
@@ -126,10 +115,10 @@ fn build_get_deployments() -> Command {
         .run(|ctx| {
             let namespace = ctx
                 .flag("namespace")
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .unwrap_or("default");
 
-            println!("Listing deployments in namespace: {}", namespace);
+            println!("Listing deployments in namespace: {namespace}");
             Ok(())
         })
         .build()
@@ -177,9 +166,9 @@ fn get_pods_in_namespace(namespace: &str) -> Vec<String> {
         .as_secs();
 
     // Simple pseudo-random generation
-    let rand1 = ((timestamp * 1103515245 + 12345) / 65536) % 100000;
-    let rand2 = ((rand1 * 1103515245 + 12345) / 65536) % 100000;
-    let rand3 = ((rand2 * 1103515245 + 12345) / 65536) % 100000;
+    let rand1 = ((timestamp * 1_103_515_245 + 12345) / 65536) % 100_000;
+    let rand2 = ((rand1 * 1_103_515_245 + 12345) / 65536) % 100_000;
+    let rand3 = ((rand2 * 1_103_515_245 + 12345) / 65536) % 100_000;
 
     match namespace {
         "default" => vec![

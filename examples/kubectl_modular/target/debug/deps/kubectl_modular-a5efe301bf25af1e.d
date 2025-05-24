@@ -12,5 +12,5 @@ src/cmd/describe.rs:
 src/cmd/get.rs:
 Cargo.toml:
 
-# env-dep:CLIPPY_ARGS=--no-deps__CLIPPY_HACKERY__
+# env-dep:CLIPPY_ARGS=-W__CLIPPY_HACKERY__clippy::all__CLIPPY_HACKERY__
 # env-dep:CLIPPY_CONF_DIR

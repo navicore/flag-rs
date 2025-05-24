@@ -18,8 +18,8 @@ pub fn register(parent: &mut Command) {
                 "service" | "services" | "svc" => describe_service(resource_name),
                 "deployment" | "deployments" | "deploy" => describe_deployment(resource_name),
                 _ => {
-                    eprintln!("Error: Unknown resource type: {}", resource_type);
-                    Err(flag::Error::ArgumentParsing(format!("unknown resource type: {}", resource_type)))
+                    eprintln!("Error: Unknown resource type: {resource_type}");
+                    Err(flag::Error::ArgumentParsing(format!("unknown resource type: {resource_type}")))
                 }
             }
         })
@@ -31,7 +31,7 @@ pub fn register(parent: &mut Command) {
 fn describe_pod(name: Option<&String>) -> flag::Result<()> {
     match name {
         Some(pod_name) => {
-            println!("Name:         {}", pod_name);
+            println!("Name:         {pod_name}");
             println!("Namespace:    default");
             println!("Priority:     0");
             println!("Node:         minikube/192.168.99.100");
@@ -54,8 +54,7 @@ fn describe_pod(name: Option<&String>) -> flag::Result<()> {
             println!("  Type    Reason     Age   From               Message");
             println!("  ----    ------     ----  ----               -------");
             println!(
-                "  Normal  Scheduled  2d    default-scheduler  Successfully assigned default/{} to minikube",
-                pod_name
+                "  Normal  Scheduled  2d    default-scheduler  Successfully assigned default/{pod_name} to minikube"
             );
             println!(
                 "  Normal  Pulled     2d    kubelet            Container image \"nginx:1.14.2\" already present on machine"
@@ -76,7 +75,7 @@ fn describe_pod(name: Option<&String>) -> flag::Result<()> {
 fn describe_service(name: Option<&String>) -> flag::Result<()> {
     match name {
         Some(svc_name) => {
-            println!("Name:              {}", svc_name);
+            println!("Name:              {svc_name}");
             println!("Namespace:         default");
             println!("Labels:            app=nginx");
             println!("Annotations:       <none>");
@@ -105,7 +104,7 @@ fn describe_service(name: Option<&String>) -> flag::Result<()> {
 fn describe_deployment(name: Option<&String>) -> flag::Result<()> {
     match name {
         Some(deploy_name) => {
-            println!("Name:                   {}", deploy_name);
+            println!("Name:                   {deploy_name}");
             println!("Namespace:              default");
             println!("CreationTimestamp:      Mon, 15 Jan 2024 10:30:00 +0000");
             println!("Labels:                 app=nginx");
