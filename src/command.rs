@@ -11,10 +11,10 @@ pub struct Command {
     aliases: Vec<String>,
     short: String,
     long: String,
-    subcommands: HashMap<String, Command>,
+    subcommands: HashMap<String, Self>,
     flags: HashMap<String, Flag>,
     run: Option<RunFunc>,
-    parent: Option<*mut Command>,
+    parent: Option<*mut Self>,
     arg_completions: Option<CompletionFunc>,
     flag_completions: HashMap<String, CompletionFunc>,
 }
@@ -63,7 +63,7 @@ impl Command {
         &self.long
     }
 
-    pub fn subcommands(&self) -> &HashMap<String, Command> {
+    pub fn subcommands(&self) -> &HashMap<String, Self> {
         &self.subcommands
     }
 
@@ -71,7 +71,7 @@ impl Command {
         &self.flags
     }
 
-    pub fn find_subcommand(&self, name: &str) -> Option<&Command> {
+    pub fn find_subcommand(&self, name: &str) -> Option<&Self> {
         self.subcommands.get(name).or_else(|| {
             self.subcommands
                 .values()
@@ -79,7 +79,7 @@ impl Command {
         })
     }
 
-    pub fn find_subcommand_mut(&mut self, name: &str) -> Option<&mut Command> {
+    pub fn find_subcommand_mut(&mut self, name: &str) -> Option<&mut Self> {
         let name_string = name.to_string();
         if self.subcommands.contains_key(name) {
             self.subcommands.get_mut(name)
@@ -90,23 +90,23 @@ impl Command {
         }
     }
 
-    pub fn add_command(&mut self, mut cmd: Command) {
-        cmd.parent = Some(self as *mut Command);
+    pub fn add_command(&mut self, mut cmd: Self) {
+        cmd.parent = Some(self as *mut Self);
         self.subcommands.insert(cmd.name.clone(), cmd);
     }
 
     pub fn execute(&self, args: Vec<String>) -> Result<()> {
         // Check if we're in completion mode
         if let Ok(_shell) = std::env::var(format!("{}_COMPLETE", self.name.to_uppercase())) {
-            match self.handle_completion_request(args) {
+            match self.handle_completion_request(&args) {
                 Ok(suggestions) => {
                     for suggestion in suggestions {
-                        println!("{}", suggestion);
+                        println!("{suggestion}");
                     }
                     return Ok(());
                 }
                 Err(e) => {
-                    eprintln!("Completion error: {}", e);
+                    eprintln!("Completion error: {e}");
                     return Err(e);
                 }
             }
@@ -120,7 +120,7 @@ impl Command {
         let args = ctx.args().to_vec();
 
         // Parse flags first, before checking for empty args
-        let (flags, remaining_args) = self.parse_flags(&args)?;
+        let (flags, remaining_args) = self.parse_flags(&args);
 
         *ctx.args_mut() = remaining_args;
 
@@ -167,7 +167,7 @@ impl Command {
         }
     }
 
-    fn parse_flags(&self, args: &[String]) -> Result<(HashMap<String, String>, Vec<String>)> {
+    fn parse_flags(&self, args: &[String]) -> (HashMap<String, String>, Vec<String>) {
         let mut flags = HashMap::new();
         let mut remaining = Vec::new();
         let mut i = 0;
@@ -229,7 +229,7 @@ impl Command {
             i += 1;
         }
 
-        Ok((flags, remaining))
+        (flags, remaining)
     }
 
     pub fn set_arg_completion<F>(&mut self, f: F)
@@ -265,11 +265,8 @@ impl Command {
 
     fn find_flag(&self, name: &str) -> Option<&Flag> {
         self.flags.get(name).or_else(|| {
-            if let Some(parent) = self.parent {
-                unsafe { (*parent).find_flag(name) }
-            } else {
-                None
-            }
+            self.parent
+                .and_then(|parent| unsafe { (*parent).find_flag(name) })
         })
     }
 
@@ -278,11 +275,8 @@ impl Command {
             .values()
             .find(|f| f.short == Some(short))
             .or_else(|| {
-                if let Some(parent) = self.parent {
-                    unsafe { (*parent).find_flag_by_short(short) }
-                } else {
-                    None
-                }
+                self.parent
+                    .and_then(|parent| unsafe { (*parent).find_flag_by_short(short) })
             })
     }
 
@@ -324,7 +318,7 @@ impl Command {
             local_flags.sort_by_key(|f| &f.name);
 
             for flag in local_flags {
-                self.print_flag(flag);
+                Self::print_flag(flag);
             }
         }
 
@@ -338,7 +332,7 @@ impl Command {
                     global_flags.sort_by_key(|f| &f.name);
 
                     for flag in global_flags {
-                        self.print_flag(flag);
+                        Self::print_flag(flag);
                     }
                 }
             }
@@ -352,13 +346,12 @@ impl Command {
         );
     }
 
-    fn print_flag(&self, flag: &Flag) {
+    fn print_flag(flag: &Flag) {
         use crate::color;
 
         let short = flag
             .short
-            .map(|s| format!("-{}, ", s))
-            .unwrap_or_else(|| "    ".to_string());
+            .map_or_else(|| "    ".to_string(), |s| format!("-{s}, "));
 
         let flag_type = match &flag.value_type {
             FlagType::String => " string",
@@ -372,25 +365,25 @@ impl Command {
             .default
             .as_ref()
             .map(|d| match d {
-                FlagValue::String(s) => format!(" (default \"{}\")", s),
-                FlagValue::Bool(b) => format!(" (default {})", b),
-                FlagValue::Int(i) => format!(" (default {})", i),
-                FlagValue::Float(f) => format!(" (default {})", f),
-                FlagValue::StringSlice(v) => format!(" (default {:?})", v),
+                FlagValue::String(s) => format!(" (default \"{s}\")"),
+                FlagValue::Bool(b) => format!(" (default {b})"),
+                FlagValue::Int(i) => format!(" (default {i})"),
+                FlagValue::Float(f) => format!(" (default {f})"),
+                FlagValue::StringSlice(v) => format!(" (default {v:?})"),
             })
             .unwrap_or_default();
 
         println!(
             "      {}--{:<15}  {}{}",
             color::cyan(&short),
-            color::cyan(&format!("{}{}", flag.name, flag_type)),
+            color::cyan(&format!("{}{flag_type}", flag.name)),
             flag.usage,
             color::dim(&default)
         );
     }
 
     // Handle completion requests from shell
-    pub fn handle_completion_request(&self, args: Vec<String>) -> Result<Vec<String>> {
+    pub fn handle_completion_request(&self, args: &[String]) -> Result<Vec<String>> {
         // args format: ["__complete", ...previous_args, current_word]
         if args.is_empty() || args[0] != "__complete" {
             return Err(Error::Completion("Invalid completion request".to_string()));
@@ -426,7 +419,7 @@ impl Command {
                         i += 1;
                     }
                 }
-            } else if arg.starts_with("-") && arg.len() > 1 {
+            } else if arg.starts_with('-') && arg.len() > 1 {
                 // Short flags
                 let chars = arg.chars().skip(1).collect::<Vec<_>>();
                 for ch in chars {
@@ -457,9 +450,9 @@ impl Command {
             Ok(suggestions
                 .into_iter()
                 .filter(|flag| flag.starts_with(prefix))
-                .map(|flag| format!("--{}", flag))
+                .map(|flag| format!("--{flag}"))
                 .collect())
-        } else if current_word.starts_with("-") && current_word.len() > 1 {
+        } else if current_word.starts_with('-') && current_word.len() > 1 {
             // For short flags, we don't complete (too complex)
             Ok(vec![])
         } else {
@@ -523,11 +516,13 @@ impl CommandBuilder {
         }
     }
 
+    #[must_use]
     pub fn alias(mut self, alias: impl Into<String>) -> Self {
         self.command.aliases.push(alias.into());
         self
     }
 
+    #[must_use]
     pub fn aliases<I, S>(mut self, aliases: I) -> Self
     where
         I: IntoIterator<Item = S>,
@@ -535,30 +530,35 @@ impl CommandBuilder {
     {
         self.command
             .aliases
-            .extend(aliases.into_iter().map(|s| s.into()));
+            .extend(aliases.into_iter().map(Into::into));
         self
     }
 
+    #[must_use]
     pub fn short(mut self, short: impl Into<String>) -> Self {
         self.command.short = short.into();
         self
     }
 
+    #[must_use]
     pub fn long(mut self, long: impl Into<String>) -> Self {
         self.command.long = long.into();
         self
     }
 
+    #[must_use]
     pub fn subcommand(mut self, cmd: Command) -> Self {
         self.command.add_command(cmd);
         self
     }
 
+    #[must_use]
     pub fn flag(mut self, flag: Flag) -> Self {
         self.command.flags.insert(flag.name.clone(), flag);
         self
     }
 
+    #[must_use]
     pub fn run<F>(mut self, f: F) -> Self
     where
         F: Fn(&mut Context) -> Result<()> + Send + Sync + 'static,
@@ -567,6 +567,7 @@ impl CommandBuilder {
         self
     }
 
+    #[must_use]
     pub fn arg_completion<F>(mut self, f: F) -> Self
     where
         F: Fn(&Context, &str) -> Result<CompletionResult> + Send + Sync + 'static,
@@ -575,6 +576,7 @@ impl CommandBuilder {
         self
     }
 
+    #[must_use]
     pub fn flag_completion<F>(mut self, flag_name: impl Into<String>, f: F) -> Self
     where
         F: Fn(&Context, &str) -> Result<CompletionResult> + Send + Sync + 'static,
@@ -583,6 +585,7 @@ impl CommandBuilder {
         self
     }
 
+    #[must_use]
     pub fn build(self) -> Command {
         self.command
     }

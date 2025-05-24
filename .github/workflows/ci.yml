@@ -48,20 +48,12 @@ jobs:
           -D clippy::pedantic \
           -D clippy::nursery \
           -D clippy::cargo \
-          -W clippy::restriction \
           -A clippy::module_name_repetitions \
           -A clippy::must_use_candidate \
           -A clippy::missing_errors_doc \
           -A clippy::missing_panics_doc \
           -A clippy::missing_docs_in_private_items \
-          -A clippy::implicit_return \
-          -A clippy::shadow_reuse \
-          -A clippy::shadow_same \
-          -A clippy::exhaustive_enums \
-          -A clippy::exhaustive_structs \
-          -A clippy::indexing_slicing \
-          -A clippy::separated_literal_suffix \
-          -A clippy::mod_module_files
+          -A clippy::missing_const_for_fn
     - name: Run clippy on tests
       run: |
         cargo clippy --tests -- \

@@ -28,18 +28,18 @@ pub fn register(parent: &mut Command) {
                 eprintln!("Error: You must specify the type of resource to delete");
                 return Err(flag::Error::ArgumentParsing("resource type required".to_string()));
             }
-            
+
             let resource_type = &ctx.args()[0];
             let resource_name = ctx.args().get(1);
-            
+
             let force = ctx.flag("force")
                 .and_then(|v| v.parse::<bool>().ok())
                 .unwrap_or(false);
-            
+
             let grace_period = ctx.flag("grace-period")
                 .and_then(|v| v.parse::<i64>().ok())
                 .unwrap_or(30);
-            
+
             match resource_type.as_str() {
                 "pod" | "pods" | "po" => delete_pod(resource_name, force, grace_period),
                 "service" | "services" | "svc" => delete_service(resource_name),

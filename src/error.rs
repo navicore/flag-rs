@@ -16,15 +16,15 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::CommandNotFound(cmd) => write!(f, "Unknown command: {}", cmd),
-            Error::SubcommandRequired(cmd) => write!(f, "'{}' requires a subcommand", cmd),
-            Error::NoRunFunction(cmd) => write!(f, "Command '{}' is not runnable", cmd),
-            Error::FlagParsing(msg) => write!(f, "Invalid flag: {}", msg),
-            Error::ArgumentParsing(msg) => write!(f, "Invalid argument: {}", msg),
-            Error::Validation(msg) => write!(f, "Validation error: {}", msg),
-            Error::Completion(msg) => write!(f, "Completion error: {}", msg),
-            Error::Io(err) => write!(f, "IO error: {}", err),
-            Error::Custom(err) => write!(f, "Error: {}", err),
+            Self::CommandNotFound(cmd) => write!(f, "Unknown command: {cmd}"),
+            Self::SubcommandRequired(cmd) => write!(f, "'{cmd}' requires a subcommand"),
+            Self::NoRunFunction(cmd) => write!(f, "Command '{cmd}' is not runnable"),
+            Self::FlagParsing(msg) => write!(f, "Invalid flag: {msg}"),
+            Self::ArgumentParsing(msg) => write!(f, "Invalid argument: {msg}"),
+            Self::Validation(msg) => write!(f, "Validation error: {msg}"),
+            Self::Completion(msg) => write!(f, "Completion error: {msg}"),
+            Self::Io(err) => write!(f, "IO error: {err}"),
+            Self::Custom(err) => write!(f, "Error: {err}"),
         }
     }
 }
@@ -32,8 +32,8 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::Io(err) => Some(err),
-            Error::Custom(err) => Some(err.as_ref()),
+            Self::Io(err) => Some(err),
+            Self::Custom(err) => Some(err.as_ref()),
             _ => None,
         }
     }
@@ -41,7 +41,7 @@ impl std::error::Error for Error {
 
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
-        Error::Io(err)
+        Self::Io(err)
     }
 }
 

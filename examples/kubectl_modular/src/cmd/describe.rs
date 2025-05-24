@@ -9,10 +9,10 @@ pub fn register(parent: &mut Command) {
                 eprintln!("Error: You must specify the type of resource to describe. Use \"kubectl api-resources\" for a complete list of supported resources.");
                 return Err(flag::Error::ArgumentParsing("resource type required".to_string()));
             }
-            
+
             let resource_type = &ctx.args()[0];
             let resource_name = ctx.args().get(1);
-            
+
             match resource_type.as_str() {
                 "pod" | "pods" | "po" => describe_pod(resource_name),
                 "service" | "services" | "svc" => describe_service(resource_name),

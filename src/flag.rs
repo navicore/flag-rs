@@ -12,35 +12,35 @@ pub enum FlagValue {
 impl FlagValue {
     pub fn as_string(&self) -> Result<&String> {
         match self {
-            FlagValue::String(s) => Ok(s),
+            Self::String(s) => Ok(s),
             _ => Err(Error::FlagParsing("Flag is not a string".to_string())),
         }
     }
 
     pub fn as_bool(&self) -> Result<bool> {
         match self {
-            FlagValue::Bool(b) => Ok(*b),
+            Self::Bool(b) => Ok(*b),
             _ => Err(Error::FlagParsing("Flag is not a bool".to_string())),
         }
     }
 
     pub fn as_int(&self) -> Result<i64> {
         match self {
-            FlagValue::Int(i) => Ok(*i),
+            Self::Int(i) => Ok(*i),
             _ => Err(Error::FlagParsing("Flag is not an integer".to_string())),
         }
     }
 
     pub fn as_float(&self) -> Result<f64> {
         match self {
-            FlagValue::Float(f) => Ok(*f),
+            Self::Float(f) => Ok(*f),
             _ => Err(Error::FlagParsing("Flag is not a float".to_string())),
         }
     }
 
     pub fn as_string_slice(&self) -> Result<&Vec<String>> {
         match self {
-            FlagValue::StringSlice(v) => Ok(v),
+            Self::StringSlice(v) => Ok(v),
             _ => Err(Error::FlagParsing("Flag is not a string slice".to_string())),
         }
     }
@@ -66,6 +66,7 @@ pub enum FlagType {
 }
 
 impl Flag {
+    #[must_use]
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -77,27 +78,32 @@ impl Flag {
         }
     }
 
-    pub fn short(mut self, short: char) -> Self {
+    #[must_use]
+    pub const fn short(mut self, short: char) -> Self {
         self.short = Some(short);
         self
     }
 
+    #[must_use]
     pub fn usage(mut self, usage: impl Into<String>) -> Self {
         self.usage = usage.into();
         self
     }
 
+    #[must_use]
     pub fn default(mut self, value: FlagValue) -> Self {
         self.default = Some(value);
         self
     }
 
-    pub fn required(mut self) -> Self {
+    #[must_use]
+    pub const fn required(mut self) -> Self {
         self.required = true;
         self
     }
 
-    pub fn value_type(mut self, value_type: FlagType) -> Self {
+    #[must_use]
+    pub const fn value_type(mut self, value_type: FlagType) -> Self {
         self.value_type = value_type;
         self
     }
@@ -109,18 +115,17 @@ impl Flag {
                 "true" | "t" | "1" | "yes" | "y" => Ok(FlagValue::Bool(true)),
                 "false" | "f" | "0" | "no" | "n" => Ok(FlagValue::Bool(false)),
                 _ => Err(Error::FlagParsing(format!(
-                    "Invalid boolean value: {}",
-                    input
+                    "Invalid boolean value: {input}"
                 ))),
             },
             FlagType::Int => input
                 .parse::<i64>()
                 .map(FlagValue::Int)
-                .map_err(|_| Error::FlagParsing(format!("Invalid integer value: {}", input))),
+                .map_err(|_| Error::FlagParsing(format!("Invalid integer value: {input}"))),
             FlagType::Float => input
                 .parse::<f64>()
                 .map(FlagValue::Float)
-                .map_err(|_| Error::FlagParsing(format!("Invalid float value: {}", input))),
+                .map_err(|_| Error::FlagParsing(format!("Invalid float value: {input}"))),
             FlagType::StringSlice => Ok(FlagValue::StringSlice(vec![input.to_string()])),
         }
     }

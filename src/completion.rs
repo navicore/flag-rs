@@ -8,6 +8,7 @@ pub struct CompletionResult {
 }
 
 impl CompletionResult {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             values: Vec::new(),
@@ -16,12 +17,14 @@ impl CompletionResult {
     }
 
     #[allow(clippy::should_implement_trait)]
+    #[must_use]
     pub fn add(mut self, value: impl Into<String>) -> Self {
         self.values.push(value.into());
         self.descriptions.push(String::new());
         self
     }
 
+    #[must_use]
     pub fn add_with_description(
         mut self,
         value: impl Into<String>,
@@ -32,6 +35,7 @@ impl CompletionResult {
         self
     }
 
+    #[must_use]
     pub fn extend<I: IntoIterator<Item = String>>(mut self, values: I) -> Self {
         for value in values {
             self.values.push(value);

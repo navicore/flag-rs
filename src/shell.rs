@@ -1,6 +1,7 @@
 use crate::command::Command;
 use std::fmt::Write;
 
+#[derive(Debug, Clone, Copy)]
 pub enum Shell {
     Bash,
     Zsh,
