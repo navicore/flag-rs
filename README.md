@@ -248,6 +248,19 @@ The project uses GitHub Actions for CI with:
 The clippy configuration in CI is very strict to catch potential issues early.
 See `.github/workflows/ci.yml` for the full configuration.
 
+### Publishing Releases
+
+To publish a new release to crates.io:
+
+1. Update the version in `Cargo.toml`
+2. Commit and push the version change
+3. Create a GitHub release with a tag like `v0.6.0` (matching the Cargo.toml version)
+4. GitHub Actions will automatically publish to crates.io
+
+**Setup Required:**
+- Add your crates.io API token as a GitHub secret named `CRATES_IO_TOKEN`
+- Get your token from: https://crates.io/settings/tokens
+
 ## License
 
 MIT
