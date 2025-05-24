@@ -1,6 +1,6 @@
 [package]
 name = "flag-rs"
-version = "0.6.3"
+version = "0.6.4"
 license = "MIT"
 authors = ["Ed Sweeney <ed@onextent.com>"]
 edition = "2021"
