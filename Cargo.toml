@@ -1,0 +1,18 @@
+[package]
+name = "flag"
+version = "0.6.0"
+license = "MIT"
+authors = ["Ed Sweeney <ed@onextent.com>"]
+edition = "2024"
+
+[dependencies]
+
+[dev-dependencies]
+
+[[example]]
+name = "kubectl"
+path = "examples/kubectl.rs"
+
+[[example]]
+name = "kubectl_modular"
+path = "examples/kubectl_modular/src/main.rs"

@@ -1,0 +1,34 @@
+# Opinionated Clippy configuration for cobra-rs
+
+# Deny common mistakes and enforce good practices
+avoid-breaking-exported-api = false
+msrv = "1.70.0"
+
+# Warn on all pedantic lints
+warn-on-all-wildcard-imports = true
+
+# Set max values for complexity
+cognitive-complexity-threshold = 30
+too-many-arguments-threshold = 7
+type-complexity-threshold = 250
+single-char-binding-names-threshold = 4
+too-many-lines-threshold = 400
+trivial-copy-size-limit = 16
+enum-variant-name-threshold = 3
+struct-field-name-threshold = 3
+
+# Documentation
+missing-docs-in-crate-items = true
+
+# Allow certain patterns
+allow-dbg-in-tests = true
+allow-print-in-tests = true
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+
+# Disallowed names
+disallowed-names = ["foo", "bar", "baz", "quux"]
+
+# Error message improvements
+#error-on-line-overflow = true
+#error-on-unformatted = false
