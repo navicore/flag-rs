@@ -1,11 +1,43 @@
+//! Command execution and management
+//!
+//! This module provides the core [`Command`] struct and [`CommandBuilder`] for creating
+//! CLI applications with subcommands, flags, and dynamic completions.
+
 use crate::completion::{CompletionFunc, CompletionResult};
 use crate::context::Context;
 use crate::error::{Error, Result};
 use crate::flag::{Flag, FlagType, FlagValue};
 use std::collections::HashMap;
 
+/// Type alias for the function that executes when a command runs
 pub type RunFunc = Box<dyn Fn(&mut Context) -> Result<()> + Send + Sync>;
 
+/// Represents a command in the CLI application
+///
+/// Commands can have:
+/// - Subcommands for nested command structures
+/// - Flags that modify behavior
+/// - A run function that executes the command logic
+/// - Dynamic completion functions for arguments and flags
+/// - Help text and aliases
+///
+/// # Examples
+///
+/// ```rust
+/// use flag::{Command, CommandBuilder, Context};
+///
+/// // Using the builder pattern (recommended)
+/// let cmd = CommandBuilder::new("serve")
+///     .short("Start the web server")
+///     .run(|ctx| {
+///         println!("Server starting...");
+///         Ok(())
+///     })
+///     .build();
+///
+/// // Direct construction
+/// let mut cmd = Command::new("serve");
+/// ```
 pub struct Command {
     name: String,
     aliases: Vec<String>,
@@ -36,6 +68,15 @@ fn collect_all_flags(current: &Command, flags: &mut Vec<String>) {
 }
 
 impl Command {
+    /// Creates a new command with the given name
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::Command;
+    ///
+    /// let cmd = Command::new("myapp");
+    /// ```
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -51,26 +92,47 @@ impl Command {
         }
     }
 
+    /// Returns the command name
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the short description
     pub fn short(&self) -> &str {
         &self.short
     }
 
+    /// Returns the long description
     pub fn long(&self) -> &str {
         &self.long
     }
 
+    /// Returns a reference to all subcommands
     pub fn subcommands(&self) -> &HashMap<String, Self> {
         &self.subcommands
     }
 
+    /// Returns a reference to all flags
     pub fn flags(&self) -> &HashMap<String, Flag> {
         &self.flags
     }
 
+    /// Finds a subcommand by name or alias
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use flag::{Command, CommandBuilder};
+    /// let mut root = Command::new("app");
+    /// let sub = CommandBuilder::new("server")
+    ///     .aliases(vec!["serve", "s"])
+    ///     .build();
+    /// root.add_command(sub);
+    ///
+    /// assert!(root.find_subcommand("server").is_some());
+    /// assert!(root.find_subcommand("serve").is_some());
+    /// assert!(root.find_subcommand("s").is_some());
+    /// ```
     pub fn find_subcommand(&self, name: &str) -> Option<&Self> {
         self.subcommands.get(name).or_else(|| {
             self.subcommands
@@ -79,6 +141,7 @@ impl Command {
         })
     }
 
+    /// Finds a mutable reference to a subcommand by name or alias
     pub fn find_subcommand_mut(&mut self, name: &str) -> Option<&mut Self> {
         let name_string = name.to_string();
         if self.subcommands.contains_key(name) {
@@ -90,11 +153,53 @@ impl Command {
         }
     }
 
+    /// Adds a subcommand to this command
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::{Command, CommandBuilder};
+    ///
+    /// let mut root = Command::new("myapp");
+    /// let serve = CommandBuilder::new("serve")
+    ///     .short("Start the server")
+    ///     .build();
+    ///
+    /// root.add_command(serve);
+    /// ```
     pub fn add_command(&mut self, mut cmd: Self) {
         cmd.parent = Some(self as *mut Self);
         self.subcommands.insert(cmd.name.clone(), cmd);
     }
 
+    /// Executes the command with the given arguments
+    ///
+    /// This is the main entry point for running your CLI application.
+    /// It handles:
+    /// - Shell completion requests
+    /// - Flag parsing
+    /// - Subcommand routing
+    /// - Execution of the appropriate run function
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::CommandBuilder;
+    ///
+    /// let app = CommandBuilder::new("myapp")
+    ///     .run(|ctx| {
+    ///         println!("Hello from myapp!");
+    ///         Ok(())
+    ///     })
+    ///     .build();
+    ///
+    /// // In main():
+    /// // let args: Vec<String> = std::env::args().skip(1).collect();
+    /// // if let Err(e) = app.execute(args) {
+    /// //     eprintln!("Error: {}", e);
+    /// //     std::process::exit(1);
+    /// // }
+    /// ```
     pub fn execute(&self, args: Vec<String>) -> Result<()> {
         // Check if we're in completion mode
         if let Ok(_shell) = std::env::var(format!("{}_COMPLETE", self.name.to_uppercase())) {
@@ -116,6 +221,10 @@ impl Command {
         self.execute_with_context(&mut ctx)
     }
 
+    /// Executes the command with an existing context
+    ///
+    /// This method is useful when you need to provide pre-configured context
+    /// or when implementing custom command routing.
     pub fn execute_with_context(&self, ctx: &mut Context) -> Result<()> {
         let args = ctx.args().to_vec();
 
@@ -232,6 +341,26 @@ impl Command {
         (flags, remaining)
     }
 
+    /// Sets the argument completion function for this command
+    ///
+    /// The completion function is called when the user presses TAB to complete
+    /// command arguments. It receives the current context and the prefix to complete.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::{Command, CompletionResult};
+    ///
+    /// let mut cmd = Command::new("get");
+    /// cmd.set_arg_completion(|ctx, prefix| {
+    ///     let items = vec!["users", "posts", "comments"];
+    ///     Ok(CompletionResult::new().extend(
+    ///         items.into_iter()
+    ///             .filter(|i| i.starts_with(prefix))
+    ///             .map(String::from)
+    ///     ))
+    /// });
+    /// ```
     pub fn set_arg_completion<F>(&mut self, f: F)
     where
         F: Fn(&Context, &str) -> Result<CompletionResult> + Send + Sync + 'static,
@@ -239,6 +368,25 @@ impl Command {
         self.arg_completions = Some(Box::new(f));
     }
 
+    /// Sets the completion function for a specific flag
+    ///
+    /// This allows dynamic completion of flag values based on runtime state.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::{Command, CompletionResult};
+    ///
+    /// let mut cmd = Command::new("deploy");
+    /// cmd.set_flag_completion("environment", |ctx, prefix| {
+    ///     let envs = vec!["dev", "staging", "production"];
+    ///     Ok(CompletionResult::new().extend(
+    ///         envs.into_iter()
+    ///             .filter(|e| e.starts_with(prefix))
+    ///             .map(String::from)
+    ///     ))
+    /// });
+    /// ```
     pub fn set_flag_completion<F>(&mut self, flag_name: impl Into<String>, f: F)
     where
         F: Fn(&Context, &str) -> Result<CompletionResult> + Send + Sync + 'static,
@@ -246,6 +394,9 @@ impl Command {
         self.flag_completions.insert(flag_name.into(), Box::new(f));
     }
 
+    /// Gets completion suggestions for the current context
+    ///
+    /// This method is primarily used internally by the shell completion system.
     pub fn get_completions(
         &self,
         ctx: &Context,
@@ -280,6 +431,15 @@ impl Command {
             })
     }
 
+    /// Prints the help message for this command
+    ///
+    /// The help message includes:
+    /// - Command description
+    /// - Usage information
+    /// - Available subcommands
+    /// - Local and global flags
+    ///
+    /// Help text is automatically colored when outputting to a TTY.
     pub fn print_help(&self) {
         use crate::color;
 
@@ -382,7 +542,10 @@ impl Command {
         );
     }
 
-    // Handle completion requests from shell
+    /// Handles shell completion requests
+    ///
+    /// This method is called when the shell requests completions via the
+    /// environment variable (e.g., `MYAPP_COMPLETE=bash`).
     pub fn handle_completion_request(&self, args: &[String]) -> Result<Vec<String>> {
         // args format: ["__complete", ...previous_args, current_word]
         if args.is_empty() || args[0] != "__complete" {
@@ -505,23 +668,88 @@ impl Command {
     }
 }
 
+/// Builder for creating commands with a fluent API
+///
+/// `CommandBuilder` provides a convenient way to construct commands
+/// with method chaining. This is the recommended way to create commands.
+///
+/// # Examples
+///
+/// ```rust
+/// use flag::{CommandBuilder, Flag, FlagType, FlagValue};
+///
+/// let cmd = CommandBuilder::new("serve")
+///     .short("Start the web server")
+///     .long("Start the web server on the specified port with the given configuration")
+///     .aliases(vec!["server", "s"])
+///     .flag(
+///         Flag::new("port")
+///             .short('p')
+///             .usage("Port to listen on")
+///             .value_type(FlagType::Int)
+///             .default(FlagValue::Int(8080))
+///     )
+///     .flag(
+///         Flag::new("config")
+///             .short('c')
+///             .usage("Configuration file path")
+///             .value_type(FlagType::String)
+///             .required()
+///     )
+///     .run(|ctx| {
+///         let port = ctx.flag("port")
+///             .and_then(|s| s.parse::<i64>().ok())
+///             .unwrap_or(8080);
+///         let config = ctx.flag("config")
+///             .map(|s| s.as_str())
+///             .unwrap_or("config.toml");
+///         
+///         println!("Starting server on port {} with config {}", port, config);
+///         Ok(())
+///     })
+///     .build();
+/// ```
 pub struct CommandBuilder {
     command: Command,
 }
 
 impl CommandBuilder {
+    /// Creates a new command builder with the given name
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             command: Command::new(name),
         }
     }
 
+    /// Adds a single alias for this command
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("remove")
+    ///     .alias("rm")
+    ///     .alias("delete")
+    ///     .build();
+    /// ```
     #[must_use]
     pub fn alias(mut self, alias: impl Into<String>) -> Self {
         self.command.aliases.push(alias.into());
         self
     }
 
+    /// Adds multiple aliases for this command
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("remove")
+    ///     .aliases(vec!["rm", "delete", "del"])
+    ///     .build();
+    /// ```
     #[must_use]
     pub fn aliases<I, S>(mut self, aliases: I) -> Self
     where
@@ -534,30 +762,92 @@ impl CommandBuilder {
         self
     }
 
+    /// Sets the short description for this command
+    ///
+    /// The short description is shown in the parent command's help output.
     #[must_use]
     pub fn short(mut self, short: impl Into<String>) -> Self {
         self.command.short = short.into();
         self
     }
 
+    /// Sets the long description for this command
+    ///
+    /// The long description is shown in this command's help output.
     #[must_use]
     pub fn long(mut self, long: impl Into<String>) -> Self {
         self.command.long = long.into();
         self
     }
 
+    /// Adds a subcommand to this command
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::CommandBuilder;
+    ///
+    /// let app = CommandBuilder::new("myapp")
+    ///     .subcommand(
+    ///         CommandBuilder::new("init")
+    ///             .short("Initialize a new project")
+    ///             .build()
+    ///     )
+    ///     .subcommand(
+    ///         CommandBuilder::new("build")
+    ///             .short("Build the project")
+    ///             .build()
+    ///     )
+    ///     .build();
+    /// ```
     #[must_use]
     pub fn subcommand(mut self, cmd: Command) -> Self {
         self.command.add_command(cmd);
         self
     }
 
+    /// Adds a flag to this command
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::{CommandBuilder, Flag, FlagType};
+    ///
+    /// let cmd = CommandBuilder::new("deploy")
+    ///     .flag(
+    ///         Flag::new("force")
+    ///             .short('f')
+    ///             .usage("Force deployment without confirmation")
+    ///             .value_type(FlagType::Bool)
+    ///     )
+    ///     .build();
+    /// ```
     #[must_use]
     pub fn flag(mut self, flag: Flag) -> Self {
         self.command.flags.insert(flag.name.clone(), flag);
         self
     }
 
+    /// Sets the function to run when this command is executed
+    ///
+    /// The run function receives a mutable reference to the [`Context`]
+    /// which provides access to parsed flags and arguments.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("greet")
+    ///     .run(|ctx| {
+    ///         let name = ctx.args().first()
+    ///             .map(|s| s.as_str())
+    ///             .unwrap_or("World");
+    ///         println!("Hello, {}!", name);
+    ///         Ok(())
+    ///     })
+    ///     .build();
+    /// ```
     #[must_use]
     pub fn run<F>(mut self, f: F) -> Self
     where
@@ -567,6 +857,28 @@ impl CommandBuilder {
         self
     }
 
+    /// Sets the argument completion function
+    ///
+    /// This function is called when the user presses TAB to complete arguments.
+    /// It enables dynamic completions based on runtime state.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::{CommandBuilder, CompletionResult};
+    ///
+    /// let cmd = CommandBuilder::new("edit")
+    ///     .arg_completion(|ctx, prefix| {
+    ///         // In a real app, list files from the filesystem
+    ///         let files = vec!["main.rs", "lib.rs", "Cargo.toml"];
+    ///         Ok(CompletionResult::new().extend(
+    ///             files.into_iter()
+    ///                 .filter(|f| f.starts_with(prefix))
+    ///                 .map(String::from)
+    ///         ))
+    ///     })
+    ///     .build();
+    /// ```
     #[must_use]
     pub fn arg_completion<F>(mut self, f: F) -> Self
     where
@@ -576,6 +888,30 @@ impl CommandBuilder {
         self
     }
 
+    /// Sets the completion function for a specific flag
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag::{CommandBuilder, CompletionResult, Flag, FlagType};
+    ///
+    /// let cmd = CommandBuilder::new("connect")
+    ///     .flag(
+    ///         Flag::new("server")
+    ///             .usage("Server to connect to")
+    ///             .value_type(FlagType::String)
+    ///     )
+    ///     .flag_completion("server", |ctx, prefix| {
+    ///         // In a real app, discover available servers
+    ///         let servers = vec!["prod-1", "prod-2", "staging", "dev"];
+    ///         Ok(CompletionResult::new().extend(
+    ///             servers.into_iter()
+    ///                 .filter(|s| s.starts_with(prefix))
+    ///                 .map(String::from)
+    ///         ))
+    ///     })
+    ///     .build();
+    /// ```
     #[must_use]
     pub fn flag_completion<F>(mut self, flag_name: impl Into<String>, f: F) -> Self
     where
@@ -585,6 +921,7 @@ impl CommandBuilder {
         self
     }
 
+    /// Builds and returns the completed [`Command`]
     #[must_use]
     pub fn build(self) -> Command {
         self.command

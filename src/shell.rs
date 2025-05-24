@@ -1,14 +1,77 @@
+//! Shell completion script generation
+//!
+//! This module provides functionality to generate shell completion scripts
+//! for Bash, Zsh, and Fish shells. The generated scripts integrate with the
+//! dynamic completion system to provide TAB completions at runtime.
+
 use crate::command::Command;
 use std::fmt::Write;
 
+/// Supported shell types for completion generation
+///
+/// This enum represents the shells for which we can generate completion scripts.
+///
+/// # Examples
+///
+/// ```
+/// use flag::shell::Shell;
+/// use flag::Command;
+///
+/// let cmd = Command::new("myapp");
+///
+/// // Generate Bash completion script
+/// let bash_script = cmd.generate_completion(Shell::Bash);
+///
+/// // Generate Zsh completion script
+/// let zsh_script = cmd.generate_completion(Shell::Zsh);
+///
+/// // Generate Fish completion script
+/// let fish_script = cmd.generate_completion(Shell::Fish);
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub enum Shell {
+    /// Bash shell (most common on Linux)
     Bash,
+    /// Zsh shell (default on macOS)
     Zsh,
+    /// Fish shell (modern alternative shell)
     Fish,
 }
 
 impl Command {
+    /// Generates a completion script for the specified shell
+    ///
+    /// The generated script should be saved to the appropriate location
+    /// for your shell to load it automatically.
+    ///
+    /// # Arguments
+    ///
+    /// * `shell` - The shell to generate completions for
+    ///
+    /// # Returns
+    ///
+    /// A string containing the shell completion script
+    ///
+    /// # Shell-specific installation
+    ///
+    /// ## Bash
+    /// Save to `/etc/bash_completion.d/myapp` or source from `.bashrc`:
+    /// ```bash
+    /// myapp completion bash > ~/.myapp-completion.bash
+    /// echo "source ~/.myapp-completion.bash" >> ~/.bashrc
+    /// ```
+    ///
+    /// ## Zsh
+    /// Save to a directory in your `$fpath`:
+    /// ```bash
+    /// myapp completion zsh > ~/.zsh/completions/_myapp
+    /// ```
+    ///
+    /// ## Fish
+    /// Save to Fish's completion directory:
+    /// ```bash
+    /// myapp completion fish > ~/.config/fish/completions/myapp.fish
+    /// ```
     pub fn generate_completion(&self, shell: Shell) -> String {
         match shell {
             Shell::Bash => self.generate_bash_completion(),
