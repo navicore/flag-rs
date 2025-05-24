@@ -16,7 +16,7 @@ use crate::error::Result;
 /// # Examples
 ///
 /// ```
-/// use flag::completion::CompletionResult;
+/// use flag_rs::completion::CompletionResult;
 ///
 /// let completions = CompletionResult::new()
 ///     .add("create")
@@ -55,7 +55,7 @@ impl CompletionResult {
     /// # Examples
     ///
     /// ```
-    /// use flag::completion::CompletionResult;
+    /// use flag_rs::completion::CompletionResult;
     ///
     /// let result = CompletionResult::new()
     ///     .add("option1")
@@ -79,7 +79,7 @@ impl CompletionResult {
     /// # Examples
     ///
     /// ```
-    /// use flag::completion::CompletionResult;
+    /// use flag_rs::completion::CompletionResult;
     ///
     /// let result = CompletionResult::new()
     ///     .add_with_description("--verbose", "Enable verbose output")
@@ -105,7 +105,7 @@ impl CompletionResult {
     /// # Examples
     ///
     /// ```
-    /// use flag::completion::CompletionResult;
+    /// use flag_rs::completion::CompletionResult;
     ///
     /// let options = vec!["opt1".to_string(), "opt2".to_string()];
     /// let result = CompletionResult::new().extend(options);
@@ -143,9 +143,9 @@ impl Default for CompletionResult {
 /// # Examples
 ///
 /// ```
-/// use flag::completion::{CompletionFunc, CompletionResult};
-/// use flag::context::Context;
-/// use flag::error::Result;
+/// use flag_rs::completion::{CompletionFunc, CompletionResult};
+/// use flag_rs::context::Context;
+/// use flag_rs::error::Result;
 ///
 /// // A completion function that suggests file names
 /// let file_completer: CompletionFunc = Box::new(|_ctx, partial| {

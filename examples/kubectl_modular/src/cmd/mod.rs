@@ -1,4 +1,4 @@
-use flag::Command;
+use flag_rs::Command;
 
 mod apply;
 mod completion;

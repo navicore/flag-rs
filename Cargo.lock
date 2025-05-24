@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "flag"
+name = "flag-rs"
 version = "0.6.0"

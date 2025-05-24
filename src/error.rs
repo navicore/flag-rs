@@ -103,7 +103,7 @@ impl From<std::io::Error> for Error {
 /// # Examples
 ///
 /// ```
-/// use flag::error::{Error, Result};
+/// use flag_rs::error::{Error, Result};
 ///
 /// fn parse_count(s: &str) -> Result<u32> {
 ///     s.parse()

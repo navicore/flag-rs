@@ -24,7 +24,7 @@ pub type RunFunc = Box<dyn Fn(&mut Context) -> Result<()> + Send + Sync>;
 /// # Examples
 ///
 /// ```rust
-/// use flag::{Command, CommandBuilder, Context};
+/// use flag_rs::{Command, CommandBuilder, Context};
 ///
 /// // Using the builder pattern (recommended)
 /// let cmd = CommandBuilder::new("serve")
@@ -73,7 +73,7 @@ impl Command {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::Command;
+    /// use flag_rs::Command;
     ///
     /// let cmd = Command::new("myapp");
     /// ```
@@ -122,7 +122,7 @@ impl Command {
     /// # Examples
     ///
     /// ```rust
-    /// # use flag::{Command, CommandBuilder};
+    /// # use flag_rs::{Command, CommandBuilder};
     /// let mut root = Command::new("app");
     /// let sub = CommandBuilder::new("server")
     ///     .aliases(vec!["serve", "s"])
@@ -158,7 +158,7 @@ impl Command {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::{Command, CommandBuilder};
+    /// use flag_rs::{Command, CommandBuilder};
     ///
     /// let mut root = Command::new("myapp");
     /// let serve = CommandBuilder::new("serve")
@@ -184,7 +184,7 @@ impl Command {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::CommandBuilder;
+    /// use flag_rs::CommandBuilder;
     ///
     /// let app = CommandBuilder::new("myapp")
     ///     .run(|ctx| {
@@ -349,7 +349,7 @@ impl Command {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::{Command, CompletionResult};
+    /// use flag_rs::{Command, CompletionResult};
     ///
     /// let mut cmd = Command::new("get");
     /// cmd.set_arg_completion(|ctx, prefix| {
@@ -375,7 +375,7 @@ impl Command {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::{Command, CompletionResult};
+    /// use flag_rs::{Command, CompletionResult};
     ///
     /// let mut cmd = Command::new("deploy");
     /// cmd.set_flag_completion("environment", |ctx, prefix| {
@@ -676,7 +676,7 @@ impl Command {
 /// # Examples
 ///
 /// ```rust
-/// use flag::{CommandBuilder, Flag, FlagType, FlagValue};
+/// use flag_rs::{CommandBuilder, Flag, FlagType, FlagValue};
 ///
 /// let cmd = CommandBuilder::new("serve")
 ///     .short("Start the web server")
@@ -726,7 +726,7 @@ impl CommandBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::CommandBuilder;
+    /// use flag_rs::CommandBuilder;
     ///
     /// let cmd = CommandBuilder::new("remove")
     ///     .alias("rm")
@@ -744,7 +744,7 @@ impl CommandBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::CommandBuilder;
+    /// use flag_rs::CommandBuilder;
     ///
     /// let cmd = CommandBuilder::new("remove")
     ///     .aliases(vec!["rm", "delete", "del"])
@@ -785,7 +785,7 @@ impl CommandBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::CommandBuilder;
+    /// use flag_rs::CommandBuilder;
     ///
     /// let app = CommandBuilder::new("myapp")
     ///     .subcommand(
@@ -811,7 +811,7 @@ impl CommandBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::{CommandBuilder, Flag, FlagType};
+    /// use flag_rs::{CommandBuilder, Flag, FlagType};
     ///
     /// let cmd = CommandBuilder::new("deploy")
     ///     .flag(
@@ -836,7 +836,7 @@ impl CommandBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::CommandBuilder;
+    /// use flag_rs::CommandBuilder;
     ///
     /// let cmd = CommandBuilder::new("greet")
     ///     .run(|ctx| {
@@ -865,7 +865,7 @@ impl CommandBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::{CommandBuilder, CompletionResult};
+    /// use flag_rs::{CommandBuilder, CompletionResult};
     ///
     /// let cmd = CommandBuilder::new("edit")
     ///     .arg_completion(|ctx, prefix| {
@@ -893,7 +893,7 @@ impl CommandBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use flag::{CommandBuilder, CompletionResult, Flag, FlagType};
+    /// use flag_rs::{CommandBuilder, CompletionResult, Flag, FlagType};
     ///
     /// let cmd = CommandBuilder::new("connect")
     ///     .flag(

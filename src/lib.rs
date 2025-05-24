@@ -1,8 +1,8 @@
-//! # Flag - A Cobra-inspired CLI Framework for Rust
+//! # Flag-rs - A Cobra-inspired CLI Framework for Rust
 //!
-//! Flag is a powerful command-line interface framework for Rust that brings the best features
+//! Flag-rs is a powerful command-line interface framework for Rust that brings the best features
 //! of Go's Cobra library to the Rust ecosystem. The key differentiator is **dynamic runtime
-//! completions** - unlike other Rust CLI frameworks, Flag can generate completions based on
+//! completions** - unlike other Rust CLI frameworks, Flag-rs can generate completions based on
 //! current system state, making it perfect for tools like `kubectl` that need to complete
 //! resource names from a live API.
 //!
@@ -19,7 +19,7 @@
 //! ## Quick Start
 //!
 //! ```rust
-//! use flag::{CommandBuilder, Flag, FlagType, FlagValue};
+//! use flag_rs::{CommandBuilder, Flag, FlagType, FlagValue};
 //!
 //! let app = CommandBuilder::new("myapp")
 //!     .short("A simple CLI application")
@@ -69,10 +69,10 @@
 //!
 //! ## Dynamic Completions
 //!
-//! The killer feature that sets Flag apart from other Rust CLI libraries:
+//! The killer feature that sets Flag-rs apart from other Rust CLI libraries:
 //!
 //! ```rust
-//! use flag::{CommandBuilder, CompletionResult};
+//! use flag_rs::{CommandBuilder, CompletionResult};
 //!
 //! let cmd = CommandBuilder::new("kubectl")
 //!     .subcommand(
@@ -105,21 +105,21 @@
 //! Add a completion command to enable shell completions:
 //!
 //! ```rust
-//! use flag::{CommandBuilder, Shell};
+//! use flag_rs::{CommandBuilder, Shell};
 //!
-//! fn build_completion_command() -> flag::Command {
+//! fn build_completion_command() -> flag_rs::Command {
 //!     CommandBuilder::new("completion")
 //!         .short("Generate shell completion script")
 //!         .run(|ctx| {
 //!             let shell_name = ctx.args().first()
-//!                 .ok_or(flag::Error::ArgumentParsing("shell name required".to_string()))?;
+//!                 .ok_or(flag_rs::Error::ArgumentParsing("shell name required".to_string()))?;
 //!             
 //!             // In a real app, get the root command here
 //!             // let script = match shell_name.as_str() {
 //!             //     "bash" => root_cmd.generate_completion(Shell::Bash),
 //!             //     "zsh" => root_cmd.generate_completion(Shell::Zsh),
 //!             //     "fish" => root_cmd.generate_completion(Shell::Fish),
-//!             //     _ => return Err(flag::Error::ArgumentParsing("unsupported shell".to_string())),
+//!             //     _ => return Err(flag_rs::Error::ArgumentParsing("unsupported shell".to_string())),
 //!             // };
 //!             // println!("{}", script);
 //!             Ok(())
@@ -143,11 +143,11 @@
 //!
 //! ## Modular Command Structure
 //!
-//! For larger applications, Flag supports a modular architecture:
+//! For larger applications, Flag-rs supports a modular architecture:
 //!
 //! ```rust,ignore
 //! // src/commands/mod.rs
-//! pub fn register_commands(root: &mut flag::Command) {
+//! pub fn register_commands(root: &mut flag_rs::Command) {
 //!     // Register each command module
 //!     serve::register(root);
 //!     config::register(root);
@@ -155,9 +155,9 @@
 //! }
 //!
 //! // src/commands/serve.rs
-//! use flag::{CommandBuilder, Flag, FlagType};
+//! use flag_rs::{CommandBuilder, Flag, FlagType};
 //!
-//! pub fn register(parent: &mut flag::Command) {
+//! pub fn register(parent: &mut flag_rs::Command) {
 //!     let cmd = CommandBuilder::new("serve")
 //!         .short("Start the application server")
 //!         .flag(
@@ -178,10 +178,10 @@
 //!
 //! ## Error Handling
 //!
-//! Flag uses idiomatic Rust error handling:
+//! Flag-rs uses idiomatic Rust error handling:
 //!
 //! ```rust
-//! use flag::{CommandBuilder, Error};
+//! use flag_rs::{CommandBuilder, Error};
 //!
 //! let cmd = CommandBuilder::new("deploy")
 //!     .run(|ctx| {

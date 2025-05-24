@@ -1,4 +1,4 @@
-use flag::{Command, CommandBuilder, CompletionResult, Flag, FlagType, FlagValue, Shell};
+use flag_rs::{Command, CommandBuilder, CompletionResult, Flag, FlagType, FlagValue, Shell};
 use std::env;
 
 fn main() {
@@ -210,7 +210,9 @@ fn build_completion_command() -> Command {
         .long("Generate shell completion scripts for kubectl")
         .run(|ctx| {
             let shell_name = ctx.args().first().ok_or_else(|| {
-                flag::Error::ArgumentParsing("shell name required (bash, zsh, or fish)".to_string())
+                flag_rs::Error::ArgumentParsing(
+                    "shell name required (bash, zsh, or fish)".to_string(),
+                )
             })?;
 
             let shell = match shell_name.as_str() {
@@ -218,7 +220,7 @@ fn build_completion_command() -> Command {
                 "zsh" => Shell::Zsh,
                 "fish" => Shell::Fish,
                 _ => {
-                    return Err(flag::Error::ArgumentParsing(format!(
+                    return Err(flag_rs::Error::ArgumentParsing(format!(
                         "unsupported shell: {}",
                         shell_name
                     )));

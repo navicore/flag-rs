@@ -1,4 +1,4 @@
-use flag::{Command, CommandBuilder, Flag, FlagType, FlagValue};
+use flag_rs::{Command, CommandBuilder, Flag, FlagType, FlagValue};
 
 pub fn register(parent: &mut Command) {
     let cmd = CommandBuilder::new("apply")
@@ -29,7 +29,7 @@ pub fn register(parent: &mut Command) {
                 Some(f) => f,
                 None => {
                     eprintln!("Error: Must specify --filename/-f");
-                    return Err(flag::Error::ArgumentParsing("filename required".to_string()));
+                    return Err(flag_rs::Error::ArgumentParsing("filename required".to_string()));
                 }
             };
 

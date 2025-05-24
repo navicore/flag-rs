@@ -14,7 +14,7 @@
 //! # Examples
 //!
 //! ```
-//! use flag::color;
+//! use flag_rs::color;
 //!
 //! // Using convenience functions
 //! println!("{}", color::red("Error: Something went wrong"));
@@ -22,7 +22,7 @@
 //! println!("{}", color::bold("Important message"));
 //!
 //! // Using Style directly for more control
-//! use flag::color::Style;
+//! use flag_rs::color::Style;
 //! println!("{}", Style::YELLOW.paint("Warning: Check this out"));
 //! ```
 

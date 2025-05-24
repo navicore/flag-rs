@@ -1,6 +1,6 @@
-use flag::{CommandBuilder, CompletionResult};
+use flag_rs::{CommandBuilder, CompletionResult};
 
-pub fn register(parent: &mut flag::Command) {
+pub fn register(parent: &mut flag_rs::Command) {
     // Main get command
     let cmd = CommandBuilder::new("get")
         .short("Display one or many resources")
@@ -15,7 +15,7 @@ pub fn register(parent: &mut flag::Command) {
     register_deployments(parent.find_subcommand_mut("get").unwrap());
 }
 
-fn register_pods(parent: &mut flag::Command) {
+fn register_pods(parent: &mut flag_rs::Command) {
     let cmd = CommandBuilder::new("pods")
         .aliases(vec!["po", "pod"])
         .short("List pods")
@@ -85,7 +85,7 @@ fn get_pods_in_namespace(namespace: &str) -> Vec<String> {
     }
 }
 
-fn register_services(parent: &mut flag::Command) {
+fn register_services(parent: &mut flag_rs::Command) {
     let cmd = CommandBuilder::new("services")
         .aliases(vec!["svc", "service"])
         .short("List services")
@@ -128,7 +128,7 @@ fn get_services_in_namespace(namespace: &str) -> Vec<String> {
     }
 }
 
-fn register_deployments(parent: &mut flag::Command) {
+fn register_deployments(parent: &mut flag_rs::Command) {
     let cmd = CommandBuilder::new("deployments")
         .aliases(vec!["deploy", "deployment"])
         .short("List deployments")

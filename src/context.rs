@@ -16,7 +16,7 @@ use std::collections::HashMap;
 /// # Examples
 ///
 /// ```
-/// use flag::context::Context;
+/// use flag_rs::context::Context;
 /// use std::collections::HashMap;
 ///
 /// // Create a context with arguments
@@ -64,7 +64,7 @@ impl Context {
     /// # Examples
     ///
     /// ```
-    /// use flag::context::Context;
+    /// use flag_rs::context::Context;
     ///
     /// let ctx = Context::new(vec!["file.txt".to_string()]);
     /// assert_eq!(ctx.args(), &["file.txt"]);
@@ -78,7 +78,7 @@ impl Context {
     /// # Examples
     ///
     /// ```
-    /// use flag::context::Context;
+    /// use flag_rs::context::Context;
     ///
     /// let mut ctx = Context::new(vec!["file.txt".to_string()]);
     /// ctx.args_mut().push("another.txt".to_string());
@@ -129,7 +129,7 @@ impl Context {
     /// # Examples
     ///
     /// ```
-    /// use flag::context::Context;
+    /// use flag_rs::context::Context;
     ///
     /// struct ApiClient {
     ///     endpoint: String,

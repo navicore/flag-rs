@@ -1,4 +1,4 @@
-use flag::{Command, CommandBuilder, CompletionResult, Context, Flag, FlagType};
+use flag_rs::{Command, CommandBuilder, CompletionResult, Context, Flag, FlagType};
 
 #[test]
 fn test_complex_cli_app() {

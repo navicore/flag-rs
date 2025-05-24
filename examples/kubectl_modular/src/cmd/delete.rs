@@ -1,4 +1,4 @@
-use flag::{Command, CommandBuilder, Flag, FlagType, FlagValue};
+use flag_rs::{Command, CommandBuilder, Flag, FlagType, FlagValue};
 
 pub fn register(parent: &mut Command) {
     let cmd = CommandBuilder::new("delete")
@@ -26,7 +26,7 @@ pub fn register(parent: &mut Command) {
         .run(|ctx| {
             if ctx.args().is_empty() {
                 eprintln!("Error: You must specify the type of resource to delete");
-                return Err(flag::Error::ArgumentParsing("resource type required".to_string()));
+                return Err(flag_rs::Error::ArgumentParsing("resource type required".to_string()));
             }
 
             let resource_type = &ctx.args()[0];
@@ -46,7 +46,7 @@ pub fn register(parent: &mut Command) {
                 "deployment" | "deployments" | "deploy" => delete_deployment(resource_name, force),
                 _ => {
                     eprintln!("Error: Unknown resource type: {}", resource_type);
-                    Err(flag::Error::ArgumentParsing(format!("unknown resource type: {}", resource_type)))
+                    Err(flag_rs::Error::ArgumentParsing(format!("unknown resource type: {}", resource_type)))
                 }
             }
         })
@@ -55,7 +55,7 @@ pub fn register(parent: &mut Command) {
     parent.add_command(cmd);
 }
 
-fn delete_pod(name: Option<&String>, force: bool, grace_period: i64) -> flag::Result<()> {
+fn delete_pod(name: Option<&String>, force: bool, grace_period: i64) -> flag_rs::Result<()> {
     match name {
         Some(pod_name) => {
             if force {
@@ -70,14 +70,14 @@ fn delete_pod(name: Option<&String>, force: bool, grace_period: i64) -> flag::Re
         }
         None => {
             eprintln!("Error: You must specify a pod name");
-            Err(flag::Error::ArgumentParsing(
+            Err(flag_rs::Error::ArgumentParsing(
                 "pod name required".to_string(),
             ))
         }
     }
 }
 
-fn delete_service(name: Option<&String>) -> flag::Result<()> {
+fn delete_service(name: Option<&String>) -> flag_rs::Result<()> {
     match name {
         Some(svc_name) => {
             println!("service \"{}\" deleted", svc_name);
@@ -85,14 +85,14 @@ fn delete_service(name: Option<&String>) -> flag::Result<()> {
         }
         None => {
             eprintln!("Error: You must specify a service name");
-            Err(flag::Error::ArgumentParsing(
+            Err(flag_rs::Error::ArgumentParsing(
                 "service name required".to_string(),
             ))
         }
     }
 }
 
-fn delete_deployment(name: Option<&String>, force: bool) -> flag::Result<()> {
+fn delete_deployment(name: Option<&String>, force: bool) -> flag_rs::Result<()> {
     match name {
         Some(deploy_name) => {
             if force {
@@ -104,7 +104,7 @@ fn delete_deployment(name: Option<&String>, force: bool) -> flag::Result<()> {
         }
         None => {
             eprintln!("Error: You must specify a deployment name");
-            Err(flag::Error::ArgumentParsing(
+            Err(flag_rs::Error::ArgumentParsing(
                 "deployment name required".to_string(),
             ))
         }

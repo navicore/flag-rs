@@ -1,4 +1,4 @@
-use flag::{Command, CommandBuilder, Shell};
+use flag_rs::{Command, CommandBuilder, Shell};
 
 pub fn register(parent: &mut Command) {
     let cmd = CommandBuilder::new("completion")
@@ -6,13 +6,13 @@ pub fn register(parent: &mut Command) {
         .long("Generate shell completion scripts for kubectl.\n\nTo load completions:\n\nBash:\n  $ source <(kubectl completion bash)\n\n  # To load completions for each session, execute once:\n  # Linux:\n  $ kubectl completion bash > /etc/bash_completion.d/kubectl\n  # macOS:\n  $ kubectl completion bash > /usr/local/etc/bash_completion.d/kubectl\n\nZsh:\n  $ source <(kubectl completion zsh)\n\n  # To load completions for each session, execute once:\n  $ kubectl completion zsh > \"${fpath[1]}/_kubectl\"\n\nFish:\n  $ kubectl completion fish | source\n\n  # To load completions for each session, execute once:\n  $ kubectl completion fish > ~/.config/fish/completions/kubectl.fish")
         .run(|ctx| {
             let shell_name = ctx.args().first()
-                .ok_or_else(|| flag::Error::ArgumentParsing("shell name required (bash, zsh, or fish)".to_string()))?;
+                .ok_or_else(|| flag_rs::Error::ArgumentParsing("shell name required (bash, zsh, or fish)".to_string()))?;
 
             let shell = match shell_name.as_str() {
                 "bash" => Shell::Bash,
                 "zsh" => Shell::Zsh,
                 "fish" => Shell::Fish,
-                _ => return Err(flag::Error::ArgumentParsing(format!("unsupported shell: {}", shell_name))),
+                _ => return Err(flag_rs::Error::ArgumentParsing(format!("unsupported shell: {}", shell_name))),
             };
 
             // Get the root command

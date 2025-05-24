@@ -1,6 +1,6 @@
 mod cmd;
 
-use flag::{CommandBuilder, CompletionResult, Flag, FlagType, FlagValue};
+use flag_rs::{CommandBuilder, CompletionResult, Flag, FlagType, FlagValue};
 use std::env;
 
 fn main() {

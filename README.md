@@ -1,6 +1,6 @@
-# Flag - A Cobra-inspired CLI Framework for Rust
+# Flag-rs - A Cobra-inspired CLI Framework for Rust
 
-Flag is a command-line interface (CLI) framework for Rust inspired by Go's Cobra
+Flag-rs is a command-line interface (CLI) framework for Rust inspired by Go's Cobra
 library. It provides dynamic command completion, self-registering commands, and
 a clean, modular architecture for building sophisticated CLI applications.
 
@@ -15,23 +15,32 @@ a clean, modular architecture for building sophisticated CLI applications.
 - **Idiomatic Error Handling** - Uses standard Rust `Result` types
 - **Colored Output** - Beautiful help messages with ANSI color support (respects NO_COLOR and terminal detection)
 
-## Why Flag?
+## Why Flag-rs?
 
-Flag enables dynamic completions that can query APIs, databases, or any runtime
+Flag-rs enables dynamic completions that can query APIs, databases, or any runtime
 state - just like `kubectl` does when completing pod names.  I've struggled and
 failed for a long time at modifying the leading command line processing crate to
 work this way - hence this new crate.
 
-## Why Not Flag?
+## Why Not Flag-rs?
 
-The Flag implementation may be naive - the leading crate,
+The Flag-rs implementation may be naive - the leading crate,
 [Clap](https://github.com/clap-rs/clap), is very well regarded and meets the
 needs of a huge knowledgeable user base.
+
+## Installation
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+flag-rs = "0.6"
+```
 
 ## Quick Start
 
 ```rust
-use flag::{Command, CommandBuilder, Context, Flag, FlagType, FlagValue, CompletionResult};
+use flag_rs::{Command, CommandBuilder, Context, Flag, FlagType, FlagValue, CompletionResult};
 
 fn main() {
     let app = CommandBuilder::new("myapp")
@@ -166,7 +175,7 @@ myapp completion fish | source
 
 ## Flag Types
 
-Flag supports multiple value types:
+Flag-rs supports multiple value types:
 
 - `String` - Text values
 - `Bool` - Boolean flags

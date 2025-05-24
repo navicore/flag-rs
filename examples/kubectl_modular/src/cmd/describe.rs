@@ -1,4 +1,4 @@
-use flag::{Command, CommandBuilder};
+use flag_rs::{Command, CommandBuilder};
 
 pub fn register(parent: &mut Command) {
     let cmd = CommandBuilder::new("describe")
@@ -7,7 +7,7 @@ pub fn register(parent: &mut Command) {
         .run(|ctx| {
             if ctx.args().is_empty() {
                 eprintln!("Error: You must specify the type of resource to describe. Use \"kubectl api-resources\" for a complete list of supported resources.");
-                return Err(flag::Error::ArgumentParsing("resource type required".to_string()));
+                return Err(flag_rs::Error::ArgumentParsing("resource type required".to_string()));
             }
 
             let resource_type = &ctx.args()[0];
@@ -19,7 +19,7 @@ pub fn register(parent: &mut Command) {
                 "deployment" | "deployments" | "deploy" => describe_deployment(resource_name),
                 _ => {
                     eprintln!("Error: Unknown resource type: {resource_type}");
-                    Err(flag::Error::ArgumentParsing(format!("unknown resource type: {resource_type}")))
+                    Err(flag_rs::Error::ArgumentParsing(format!("unknown resource type: {resource_type}")))
                 }
             }
         })
@@ -28,7 +28,7 @@ pub fn register(parent: &mut Command) {
     parent.add_command(cmd);
 }
 
-fn describe_pod(name: Option<&String>) -> flag::Result<()> {
+fn describe_pod(name: Option<&String>) -> flag_rs::Result<()> {
     match name {
         Some(pod_name) => {
             println!("Name:         {pod_name}");
@@ -65,14 +65,14 @@ fn describe_pod(name: Option<&String>) -> flag::Result<()> {
         }
         None => {
             eprintln!("Error: You must specify a pod name");
-            Err(flag::Error::ArgumentParsing(
+            Err(flag_rs::Error::ArgumentParsing(
                 "pod name required".to_string(),
             ))
         }
     }
 }
 
-fn describe_service(name: Option<&String>) -> flag::Result<()> {
+fn describe_service(name: Option<&String>) -> flag_rs::Result<()> {
     match name {
         Some(svc_name) => {
             println!("Name:              {svc_name}");
@@ -94,14 +94,14 @@ fn describe_service(name: Option<&String>) -> flag::Result<()> {
         }
         None => {
             eprintln!("Error: You must specify a service name");
-            Err(flag::Error::ArgumentParsing(
+            Err(flag_rs::Error::ArgumentParsing(
                 "service name required".to_string(),
             ))
         }
     }
 }
 
-fn describe_deployment(name: Option<&String>) -> flag::Result<()> {
+fn describe_deployment(name: Option<&String>) -> flag_rs::Result<()> {
     match name {
         Some(deploy_name) => {
             println!("Name:                   {deploy_name}");
@@ -134,7 +134,7 @@ fn describe_deployment(name: Option<&String>) -> flag::Result<()> {
         }
         None => {
             eprintln!("Error: You must specify a deployment name");
-            Err(flag::Error::ArgumentParsing(
+            Err(flag_rs::Error::ArgumentParsing(
                 "deployment name required".to_string(),
             ))
         }

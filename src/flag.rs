@@ -17,7 +17,7 @@ use crate::error::{Error, Result};
 /// # Examples
 ///
 /// ```
-/// use flag::flag::{FlagValue, FlagType, Flag};
+/// use flag_rs::flag::{FlagValue, FlagType, Flag};
 ///
 /// // Parse different types of values
 /// let string_flag = Flag::new("name").value_type(FlagType::String);
@@ -52,7 +52,7 @@ impl FlagValue {
     /// # Examples
     ///
     /// ```
-    /// use flag::flag::FlagValue;
+    /// use flag_rs::flag::FlagValue;
     ///
     /// let value = FlagValue::String("hello".to_string());
     /// assert_eq!(value.as_string().unwrap(), "hello");
@@ -124,7 +124,7 @@ impl FlagValue {
 /// # Examples
 ///
 /// ```
-/// use flag::flag::{Flag, FlagType, FlagValue};
+/// use flag_rs::flag::{Flag, FlagType, FlagValue};
 ///
 /// // Create a boolean flag
 /// let verbose = Flag::new("verbose")
@@ -179,7 +179,7 @@ impl Flag {
     /// # Examples
     ///
     /// ```
-    /// use flag::flag::Flag;
+    /// use flag_rs::flag::Flag;
     ///
     /// let flag = Flag::new("verbose");
     /// assert_eq!(flag.name, "verbose");
@@ -201,7 +201,7 @@ impl Flag {
     /// # Examples
     ///
     /// ```
-    /// use flag::flag::Flag;
+    /// use flag_rs::flag::Flag;
     ///
     /// let flag = Flag::new("verbose").short('v');
     /// assert_eq!(flag.short, Some('v'));
@@ -217,7 +217,7 @@ impl Flag {
     /// # Examples
     ///
     /// ```
-    /// use flag::flag::Flag;
+    /// use flag_rs::flag::Flag;
     ///
     /// let flag = Flag::new("verbose").usage("Enable verbose output");
     /// assert_eq!(flag.usage, "Enable verbose output");
@@ -233,7 +233,7 @@ impl Flag {
     /// # Examples
     ///
     /// ```
-    /// use flag::flag::{Flag, FlagValue};
+    /// use flag_rs::flag::{Flag, FlagValue};
     ///
     /// let flag = Flag::new("count").default(FlagValue::Int(10));
     /// assert_eq!(flag.default, Some(FlagValue::Int(10)));
@@ -249,7 +249,7 @@ impl Flag {
     /// # Examples
     ///
     /// ```
-    /// use flag::flag::Flag;
+    /// use flag_rs::flag::Flag;
     ///
     /// let flag = Flag::new("name").required();
     /// assert!(flag.required);
@@ -265,7 +265,7 @@ impl Flag {
     /// # Examples
     ///
     /// ```
-    /// use flag::flag::{Flag, FlagType};
+    /// use flag_rs::flag::{Flag, FlagType};
     ///
     /// let flag = Flag::new("count").value_type(FlagType::Int);
     /// ```
@@ -292,7 +292,7 @@ impl Flag {
     /// # Examples
     ///
     /// ```
-    /// use flag::flag::{Flag, FlagType, FlagValue};
+    /// use flag_rs::flag::{Flag, FlagType, FlagValue};
     ///
     /// let int_flag = Flag::new("count").value_type(FlagType::Int);
     /// match int_flag.parse_value("42") {

@@ -14,8 +14,8 @@ use std::fmt::Write;
 /// # Examples
 ///
 /// ```
-/// use flag::shell::Shell;
-/// use flag::Command;
+/// use flag_rs::shell::Shell;
+/// use flag_rs::Command;
 ///
 /// let cmd = Command::new("myapp");
 ///
