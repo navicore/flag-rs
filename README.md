@@ -87,7 +87,7 @@ fn build_serve_command() -> Command {
 
 ## Dynamic Completions
 
-The killer feature of Flag is dynamic completions. Unlike static completions,
+The killer feature of Flag-rs is dynamic completions. Unlike static completions,
 these run at completion time and can return different values based on current
 state:
 
@@ -107,6 +107,28 @@ CommandBuilder::new("get")
     })
     .build()
 ```
+
+### Completions with Descriptions
+
+Flag-rs supports rich completions with descriptions, similar to Cobra. When
+descriptions are provided, they are handled appropriately by each shell:
+
+```rust
+.flag_completion("environment", |_ctx, prefix| {
+    Ok(CompletionResult::new()
+        .add_with_description("dev", "Development environment - safe for testing")
+        .add_with_description("staging", "Staging environment - production mirror")
+        .add_with_description("prod", "Production environment - BE CAREFUL!"))
+})
+```
+
+**Shell-specific behavior:**
+- **Bash**: Shows only the completion values (descriptions not supported natively)
+- **Zsh**: Shows descriptions using native format: `value:description`
+- **Fish**: Shows descriptions using tab-separated format: `value[TAB]description`
+
+For Zsh and Fish, descriptions appear alongside completions in the shell's native
+format, providing helpful context when selecting options.
 
 ## Modular Command Structure
 

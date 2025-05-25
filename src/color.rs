@@ -116,6 +116,7 @@ impl Style {
 /// Returns `true` if:
 /// - stdout is a terminal (TTY)
 /// - `NO_COLOR` environment variable is not set
+/// - `CLICOLOR_FORCE` environment variable is set (overrides TTY check)
 ///
 /// This follows the `NO_COLOR` standard: <https://no-color.org/>
 #[must_use]
@@ -123,6 +124,11 @@ pub fn should_colorize() -> bool {
     // Respect `NO_COLOR` environment variable
     if env::var("NO_COLOR").is_ok() {
         return false;
+    }
+
+    // Force color if CLICOLOR_FORCE is set
+    if env::var("CLICOLOR_FORCE").is_ok() {
+        return true;
     }
 
     // Check if stdout is a terminal

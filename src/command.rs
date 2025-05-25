@@ -4,6 +4,7 @@
 //! CLI applications with subcommands, flags, and dynamic completions.
 
 use crate::completion::{CompletionFunc, CompletionResult};
+use crate::completion_format::CompletionFormat;
 use crate::context::Context;
 use crate::error::{Error, Result};
 use crate::flag::{Flag, FlagType, FlagValue};
@@ -53,16 +54,26 @@ pub struct Command {
 
 unsafe impl Send for Command {}
 unsafe impl Sync for Command {}
-fn collect_all_flags(current: &Command, flags: &mut Vec<String>) {
+/// Collects all available flags with their descriptions for completion
+fn collect_all_flags_with_descriptions(
+    current: &Command,
+    result: &mut CompletionResult,
+    prefix: &str,
+) {
     // Add current command's flags
-    for flag_name in current.flags.keys() {
-        flags.push(flag_name.clone());
+    for (flag_name, flag) in &current.flags {
+        if flag_name.starts_with(prefix) {
+            let formatted_flag = format!("--{flag_name}");
+            *result = result
+                .clone()
+                .add_with_description(formatted_flag, flag.usage.clone());
+        }
     }
 
     // Add parent flags
     if let Some(parent) = current.parent {
         unsafe {
-            collect_all_flags(&*parent, flags);
+            collect_all_flags_with_descriptions(&*parent, result, prefix);
         }
     }
 }
@@ -547,6 +558,8 @@ impl Command {
     /// This method is called when the shell requests completions via the
     /// environment variable (e.g., `MYAPP_COMPLETE=bash`).
     pub fn handle_completion_request(&self, args: &[String]) -> Result<Vec<String>> {
+        // Detect shell type from environment variable
+        let shell_type = self.detect_completion_shell();
         // args format: ["__complete", ...previous_args, current_word]
         if args.is_empty() || args[0] != "__complete" {
             return Err(Error::Completion("Invalid completion request".to_string()));
@@ -555,7 +568,7 @@ impl Command {
         let args = &args[1..];
         if args.is_empty() {
             // Complete root level
-            return Ok(self.get_completion_suggestions("", None));
+            return Ok(self.get_completion_suggestions("", None, shell_type.as_deref()));
         }
 
         let current_word = args.last().unwrap_or(&String::new()).clone();
@@ -605,16 +618,13 @@ impl Command {
         if current_word.starts_with("--") {
             // Complete long flags
             let prefix = current_word.trim_start_matches("--");
-            let mut suggestions = Vec::new();
+            let mut flag_completions = CompletionResult::new();
 
-            // Add flags from current command and parents
-            collect_all_flags(current_cmd, &mut suggestions);
+            // Collect flags with descriptions from current command and parents
+            collect_all_flags_with_descriptions(current_cmd, &mut flag_completions, prefix);
 
-            Ok(suggestions
-                .into_iter()
-                .filter(|flag| flag.starts_with(prefix))
-                .map(|flag| format!("--{flag}"))
-                .collect())
+            let format = CompletionFormat::from_shell_type(shell_type.as_deref());
+            Ok(format.format(&flag_completions))
         } else if current_word.starts_with('-') && current_word.len() > 1 {
             // For short flags, we don't complete (too complex)
             Ok(vec![])
@@ -625,43 +635,71 @@ impl Command {
                     let flag_name = prev.trim_start_matches("--");
                     if let Some(completion_func) = current_cmd.flag_completions.get(flag_name) {
                         let result = completion_func(&ctx, &current_word)?;
-                        return Ok(result.values);
+                        let format = CompletionFormat::from_shell_type(shell_type.as_deref());
+                        return Ok(format.format(&result));
                     }
                 }
             }
 
             // Complete subcommands or arguments
-            Ok(current_cmd.get_completion_suggestions(&current_word, Some(&ctx)))
+            Ok(current_cmd.get_completion_suggestions(
+                &current_word,
+                Some(&ctx),
+                shell_type.as_deref(),
+            ))
         }
     }
 
-    fn get_completion_suggestions(&self, prefix: &str, ctx: Option<&Context>) -> Vec<String> {
-        let mut suggestions = Vec::new();
+    /// Detects the shell type from the environment variable
+    fn detect_completion_shell(&self) -> Option<String> {
+        use std::env;
 
-        // Add subcommands
+        // Look for shell-specific completion environment variables
+        let env_var = format!("{}_COMPLETE", self.name.to_uppercase());
+        env::var(&env_var).ok()
+    }
+
+    fn get_completion_suggestions(
+        &self,
+        prefix: &str,
+        ctx: Option<&Context>,
+        shell_type: Option<&str>,
+    ) -> Vec<String> {
+        let mut completion_result = CompletionResult::new();
+        let mut has_suggestions = false;
+
+        // Add subcommands with their descriptions
         for (name, cmd) in &self.subcommands {
             if name.starts_with(prefix) {
-                suggestions.push(name.clone());
+                completion_result =
+                    completion_result.add_with_description(name.clone(), cmd.short.clone());
+                has_suggestions = true;
             }
             // Also check aliases
             for alias in &cmd.aliases {
                 if alias.starts_with(prefix) {
-                    suggestions.push(alias.clone());
+                    completion_result = completion_result
+                        .add_with_description(alias.clone(), format!("Alias for {name}"));
+                    has_suggestions = true;
                 }
             }
         }
 
         // If we have arg completions and no subcommands match, try those
-        if suggestions.is_empty() {
+        if !has_suggestions {
             if let Some(ref completion_func) = self.arg_completions {
                 let default_ctx = Context::new(vec![]);
                 let ctx = ctx.unwrap_or(&default_ctx);
                 if let Ok(result) = completion_func(ctx, prefix) {
-                    suggestions.extend(result.values);
+                    let format = CompletionFormat::from_shell_type(shell_type);
+                    return format.format(&result);
                 }
             }
         }
 
+        // Format the results
+        let format = CompletionFormat::from_shell_type(shell_type);
+        let mut suggestions = format.format(&completion_result);
         suggestions.sort();
         suggestions.dedup();
         suggestions
@@ -703,7 +741,7 @@ impl Command {
 ///         let config = ctx.flag("config")
 ///             .map(|s| s.as_str())
 ///             .unwrap_or("config.toml");
-///         
+///
 ///         println!("Starting server on port {} with config {}", port, config);
 ///         Ok(())
 ///     })
