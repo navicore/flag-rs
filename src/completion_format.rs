@@ -33,7 +33,7 @@ impl CompletionFormat {
     }
 
     /// Formats a completion result according to this format
-    pub fn format(&self, result: &CompletionResult) -> Vec<String> {
+    pub fn format(self, result: &CompletionResult) -> Vec<String> {
         match self {
             Self::Simple | Self::Bash => {
                 // For bash and simple format, return just the values
@@ -64,7 +64,7 @@ impl CompletionFormat {
         }
 
         // Calculate column width
-        let max_width = result.values.iter().map(|v| v.len()).max().unwrap_or(0);
+        let max_width = result.values.iter().map(String::len).max().unwrap_or(0);
         let column_width = max_width + 4;
 
         result
@@ -88,12 +88,10 @@ impl CompletionFormat {
 
     /// Formats for Zsh completion
     fn format_zsh(result: &CompletionResult) -> Vec<String> {
-        
         // Calculate max width for alignment
-        let max_width = result.values.iter().map(|v| v.len()).max().unwrap_or(0);
+        let max_width = result.values.iter().map(String::len).max().unwrap_or(0);
         let padding = max_width + 4; // Add some extra padding
-        
-        
+
         result
             .values
             .iter()
@@ -116,12 +114,10 @@ impl CompletionFormat {
 
     /// Formats for Fish completion
     fn format_fish(result: &CompletionResult) -> Vec<String> {
-        
         // Calculate max width for alignment
-        let max_width = result.values.iter().map(|v| v.len()).max().unwrap_or(0);
+        let max_width = result.values.iter().map(String::len).max().unwrap_or(0);
         let padding = max_width + 4; // Add some extra padding
-        
-        
+
         result
             .values
             .iter()

@@ -63,7 +63,7 @@ fn collect_all_flags_with_descriptions(
     // Add current command's flags
     for (flag_name, flag) in &current.flags {
         if flag_name.starts_with(prefix) {
-            let formatted_flag = format!("--{}", flag_name);
+            let formatted_flag = format!("--{flag_name}");
             *result = result
                 .clone()
                 .add_with_description(formatted_flag, flag.usage.clone());
@@ -679,7 +679,7 @@ impl Command {
             for alias in &cmd.aliases {
                 if alias.starts_with(prefix) {
                     completion_result = completion_result
-                        .add_with_description(alias.clone(), format!("Alias for {}", name));
+                        .add_with_description(alias.clone(), format!("Alias for {name}"));
                     has_suggestions = true;
                 }
             }
@@ -741,7 +741,7 @@ impl Command {
 ///         let config = ctx.flag("config")
 ///             .map(|s| s.as_str())
 ///             .unwrap_or("config.toml");
-///         
+///
 ///         println!("Starting server on port {} with config {}", port, config);
 ///         Ok(())
 ///     })

@@ -193,7 +193,11 @@ impl Command {
         writeln!(&mut script, "            if [[ \"$line\" == *:* ]]; then").unwrap();
         writeln!(&mut script, "                # Line has description").unwrap();
         writeln!(&mut script, "                values+=(\"${{line%%:*}}\")").unwrap();
-        writeln!(&mut script, "                descriptions+=(\"${{line#*:}}\")").unwrap();
+        writeln!(
+            &mut script,
+            "                descriptions+=(\"${{line#*:}}\")"
+        )
+        .unwrap();
         writeln!(&mut script, "            else").unwrap();
         writeln!(&mut script, "                # No description").unwrap();
         writeln!(&mut script, "                values+=(\"$line\")").unwrap();
