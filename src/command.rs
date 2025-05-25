@@ -214,6 +214,9 @@ impl Command {
     pub fn execute(&self, args: Vec<String>) -> Result<()> {
         // Check if we're in completion mode
         if let Ok(_shell) = std::env::var(format!("{}_COMPLETE", self.name.to_uppercase())) {
+            // Disable colors during completion to avoid terminal rendering issues
+            std::env::set_var("NO_COLOR", "1");
+
             match self.handle_completion_request(&args) {
                 Ok(suggestions) => {
                     for suggestion in suggestions {
@@ -222,7 +225,7 @@ impl Command {
                     return Ok(());
                 }
                 Err(e) => {
-                    eprintln!("Completion error: {e}");
+                    // Don't write to stderr during completion - it can mess up the terminal
                     return Err(e);
                 }
             }
@@ -560,6 +563,7 @@ impl Command {
     pub fn handle_completion_request(&self, args: &[String]) -> Result<Vec<String>> {
         // Detect shell type from environment variable
         let shell_type = self.detect_completion_shell();
+
         // args format: ["__complete", ...previous_args, current_word]
         if args.is_empty() || args[0] != "__complete" {
             return Err(Error::Completion("Invalid completion request".to_string()));

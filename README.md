@@ -295,3 +295,10 @@ To publish a new release to crates.io:
 ## License
 
 MIT
+
+# Developer env
+
+```
+source <(./target/debug/examples/kubectl completion zsh)
+```
+

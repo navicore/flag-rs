@@ -207,9 +207,13 @@ impl Command {
         writeln!(&mut script).unwrap();
         writeln!(&mut script, "        # Add completions with descriptions").unwrap();
         writeln!(&mut script, "        if [[ ${{#descriptions[@]}} -gt 0 ]] && [[ -n \"${{descriptions[*]// }}\" ]]; then").unwrap();
-        writeln!(&mut script, "            compadd -d descriptions -a values").unwrap();
+        writeln!(
+            &mut script,
+            "            compadd -Q -d descriptions -a values"
+        )
+        .unwrap();
         writeln!(&mut script, "        else").unwrap();
-        writeln!(&mut script, "            compadd -a values").unwrap();
+        writeln!(&mut script, "            compadd -Q -a values").unwrap();
         writeln!(&mut script, "        fi").unwrap();
         writeln!(&mut script, "    fi").unwrap();
         writeln!(&mut script, "}}").unwrap();
