@@ -220,6 +220,9 @@ pub mod flag;
 /// Shell completion script generation
 pub mod shell;
 
+/// Completion format handling
+pub mod completion_format;
+
 // Re-export main types for convenience
 pub use command::{Command, CommandBuilder};
 pub use completion::{CompletionFunc, CompletionResult};

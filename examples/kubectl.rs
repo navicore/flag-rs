@@ -28,9 +28,16 @@ fn build_kubectl() -> Command {
         )
         .flag_completion("namespace", |_ctx, prefix| {
             // In a real kubectl, this would query the API server
-            let namespaces = get_namespaces();
-            Ok(CompletionResult::new()
-                .extend(namespaces.into_iter().filter(|ns| ns.starts_with(prefix))))
+            let namespaces = get_namespaces_with_descriptions();
+            let mut result = CompletionResult::new();
+
+            for (ns_name, description) in namespaces {
+                if ns_name.starts_with(prefix) {
+                    result = result.add_with_description(ns_name, description);
+                }
+            }
+
+            Ok(result)
         })
         .build()
 }
@@ -57,9 +64,16 @@ fn build_get_pods() -> Command {
                 .unwrap_or("default");
 
             // In real kubectl, this would query the K8s API
-            let pods = get_pods_in_namespace(namespace);
-            Ok(CompletionResult::new()
-                .extend(pods.into_iter().filter(|pod| pod.starts_with(prefix))))
+            let pods = get_pods_with_status(namespace);
+            let mut result = CompletionResult::new();
+
+            for (pod_name, status) in pods {
+                if pod_name.starts_with(prefix) {
+                    result = result.add_with_description(pod_name, status);
+                }
+            }
+
+            Ok(result)
         })
         .run(|ctx| {
             let namespace = ctx
@@ -145,15 +159,89 @@ fn build_delete_command() -> Command {
 }
 
 // Mock functions that would normally query the Kubernetes API
-fn get_namespaces() -> Vec<String> {
+fn get_namespaces_with_descriptions() -> Vec<(String, String)> {
     vec![
-        "default".to_string(),
-        "kube-system".to_string(),
-        "kube-public".to_string(),
-        "development".to_string(),
-        "staging".to_string(),
-        "production".to_string(),
+        (
+            "default".to_string(),
+            "Default namespace for user workloads".to_string(),
+        ),
+        (
+            "kube-system".to_string(),
+            "Kubernetes system components".to_string(),
+        ),
+        (
+            "kube-public".to_string(),
+            "Public resources accessible to all users".to_string(),
+        ),
+        (
+            "development".to_string(),
+            "Development environment".to_string(),
+        ),
+        (
+            "staging".to_string(),
+            "Staging environment for pre-production testing".to_string(),
+        ),
+        (
+            "production".to_string(),
+            "Production environment (CAUTION)".to_string(),
+        ),
     ]
+}
+
+fn get_pods_with_status(namespace: &str) -> Vec<(String, String)> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Generate random suffix based on current time
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    // Simple pseudo-random generation
+    let rand1 = ((timestamp * 1_103_515_245 + 12345) / 65536) % 100_000;
+    let rand2 = ((rand1 * 1_103_515_245 + 12345) / 65536) % 100_000;
+    let rand3 = ((rand2 * 1_103_515_245 + 12345) / 65536) % 100_000;
+
+    match namespace {
+        "default" => vec![
+            (
+                format!("nginx-deployment-7fb96c846b-{:05x}", rand1),
+                "Running (2/2 containers)".to_string(),
+            ),
+            (
+                format!("nginx-deployment-7fb96c846b-{:05x}", rand2),
+                "Running (2/2 containers)".to_string(),
+            ),
+            (
+                "redis-master-0".to_string(),
+                "Running (1/1 containers)".to_string(),
+            ),
+            (
+                "redis-slave-0".to_string(),
+                "Running (1/1 containers)".to_string(),
+            ),
+            ("redis-slave-1".to_string(), "Pending".to_string()),
+        ],
+        "kube-system" => vec![
+            (
+                format!("coredns-5d78c9869d-{:05x}", rand1),
+                "Running (1/1 containers)".to_string(),
+            ),
+            (
+                format!("coredns-5d78c9869d-{:05x}", rand2),
+                "Running (1/1 containers)".to_string(),
+            ),
+            ("etcd-minikube".to_string(), "Running".to_string()),
+            ("kube-apiserver-minikube".to_string(), "Running".to_string()),
+            (
+                "kube-controller-manager-minikube".to_string(),
+                "Running".to_string(),
+            ),
+            (format!("kube-proxy-{:05x}", rand3), "Running".to_string()),
+            ("kube-scheduler-minikube".to_string(), "Running".to_string()),
+        ],
+        _ => vec![],
+    }
 }
 
 fn get_pods_in_namespace(namespace: &str) -> Vec<String> {

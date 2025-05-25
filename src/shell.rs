@@ -104,9 +104,14 @@ impl Command {
         writeln!(&mut script, "    if [[ -n \"$response\" ]]; then").unwrap();
         writeln!(
             &mut script,
-            "        COMPREPLY=( $(compgen -W \"$response\" -- \"$cur\") )"
+            "        # Use printf to handle each line separately"
         )
         .unwrap();
+        writeln!(&mut script, "        local lines=()").unwrap();
+        writeln!(&mut script, "        while IFS= read -r line; do").unwrap();
+        writeln!(&mut script, "            lines+=(\"$line\")").unwrap();
+        writeln!(&mut script, "        done <<< \"$response\"").unwrap();
+        writeln!(&mut script, "        COMPREPLY=( \"${{lines[@]}}\" )").unwrap();
         writeln!(&mut script, "    fi").unwrap();
         writeln!(&mut script, "}}").unwrap();
         writeln!(&mut script).unwrap();
@@ -179,8 +184,29 @@ impl Command {
         .unwrap();
         writeln!(&mut script).unwrap();
         writeln!(&mut script, "    if [[ -n \"$response\" ]]; then").unwrap();
-        writeln!(&mut script, "        completions=(${{(f)response}})").unwrap();
-        writeln!(&mut script, "        compadd -a completions").unwrap();
+        writeln!(&mut script, "        local -a values").unwrap();
+        writeln!(&mut script, "        local -a descriptions").unwrap();
+        writeln!(&mut script, "        local line").unwrap();
+        writeln!(&mut script).unwrap();
+        writeln!(&mut script, "        # Parse response lines").unwrap();
+        writeln!(&mut script, "        while IFS= read -r line; do").unwrap();
+        writeln!(&mut script, "            if [[ \"$line\" == *:* ]]; then").unwrap();
+        writeln!(&mut script, "                # Line has description").unwrap();
+        writeln!(&mut script, "                values+=(\"${{line%%:*}}\")").unwrap();
+        writeln!(&mut script, "                descriptions+=(\"${{line#*:}}\")").unwrap();
+        writeln!(&mut script, "            else").unwrap();
+        writeln!(&mut script, "                # No description").unwrap();
+        writeln!(&mut script, "                values+=(\"$line\")").unwrap();
+        writeln!(&mut script, "                descriptions+=(\"\")").unwrap();
+        writeln!(&mut script, "            fi").unwrap();
+        writeln!(&mut script, "        done <<< \"$response\"").unwrap();
+        writeln!(&mut script).unwrap();
+        writeln!(&mut script, "        # Add completions with descriptions").unwrap();
+        writeln!(&mut script, "        if [[ ${{#descriptions[@]}} -gt 0 ]] && [[ -n \"${{descriptions[*]// }}\" ]]; then").unwrap();
+        writeln!(&mut script, "            compadd -d descriptions -a values").unwrap();
+        writeln!(&mut script, "        else").unwrap();
+        writeln!(&mut script, "            compadd -a values").unwrap();
+        writeln!(&mut script, "        fi").unwrap();
         writeln!(&mut script, "    fi").unwrap();
         writeln!(&mut script, "}}").unwrap();
         writeln!(&mut script).unwrap();
