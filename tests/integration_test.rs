@@ -130,16 +130,12 @@ fn test_dynamic_completion() {
     // Test completion
     let result = pods_cmd.get_completions(&ctx, "nginx", None).unwrap();
     assert_eq!(result.values.len(), 2);
-    assert!(
-        result
-            .values
-            .contains(&"nginx-7fb96c846b-8xvnl".to_string())
-    );
-    assert!(
-        result
-            .values
-            .contains(&"nginx-7fb96c846b-kxptv".to_string())
-    );
+    assert!(result
+        .values
+        .contains(&"nginx-7fb96c846b-8xvnl".to_string()));
+    assert!(result
+        .values
+        .contains(&"nginx-7fb96c846b-kxptv".to_string()));
 
     let result = pods_cmd.get_completions(&ctx, "redis", None).unwrap();
     assert_eq!(result.values.len(), 2);
