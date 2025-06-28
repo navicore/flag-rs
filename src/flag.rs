@@ -121,7 +121,7 @@ impl FlagValue {
 ///
 /// Flag constraints allow you to define relationships between flags,
 /// such as mutual exclusivity or dependencies.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FlagConstraint {
     /// This flag is required if another flag is set
     RequiredIf(String),
@@ -176,7 +176,7 @@ pub struct Flag {
 /// Represents the type of value a flag accepts
 ///
 /// This enum determines how flag values are parsed from string input.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FlagType {
     /// Accepts any string value
     String,
