@@ -223,6 +223,12 @@ pub mod shell;
 /// Completion format handling
 pub mod completion_format;
 
+/// Completion caching for performance
+pub mod completion_cache;
+
+/// Completion timeout handling
+pub mod completion_timeout;
+
 /// Terminal utilities for enhanced CLI output
 pub mod terminal;
 
@@ -238,6 +244,7 @@ pub mod active_help;
 // Re-export main types for convenience
 pub use command::{Command, CommandBuilder};
 pub use completion::{CompletionFunc, CompletionResult};
+pub use completion_cache::CompletionCache;
 pub use context::Context;
 pub use error::{Error, Result};
 pub use flag::{Flag, FlagConstraint, FlagType, FlagValue};
