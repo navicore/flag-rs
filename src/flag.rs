@@ -8,6 +8,7 @@
 //! - Hierarchical flag inheritance from parent commands
 
 use crate::error::{Error, Result};
+use std::collections::HashSet;
 
 /// Represents the value of a parsed flag
 ///
@@ -116,6 +117,20 @@ impl FlagValue {
     }
 }
 
+/// Represents constraints that can be applied to flags
+///
+/// Flag constraints allow you to define relationships between flags,
+/// such as mutual exclusivity or dependencies.
+#[derive(Clone, Debug)]
+pub enum FlagConstraint {
+    /// This flag is required if another flag is set
+    RequiredIf(String),
+    /// This flag conflicts with other flags (mutually exclusive)
+    ConflictsWith(Vec<String>),
+    /// This flag requires other flags to be set
+    Requires(Vec<String>),
+}
+
 /// Represents a command-line flag
 ///
 /// A `Flag` defines a command-line option that can be passed to a command.
@@ -154,6 +169,8 @@ pub struct Flag {
     pub required: bool,
     /// The type of value this flag accepts
     pub value_type: FlagType,
+    /// Constraints applied to this flag
+    pub constraints: Vec<FlagConstraint>,
 }
 
 /// Represents the type of value a flag accepts
@@ -171,6 +188,16 @@ pub enum FlagType {
     Float,
     /// Accepts multiple string values (can be specified multiple times)
     StringSlice,
+    /// Accepts multiple string values with accumulation (--tag=a --tag=b)
+    StringArray,
+    /// Must be one of a predefined set of values
+    Choice(Vec<String>),
+    /// Numeric value within a specific range
+    Range(i64, i64),
+    /// Must be a valid file path
+    File,
+    /// Must be a valid directory path
+    Directory,
 }
 
 impl Flag {
@@ -193,6 +220,7 @@ impl Flag {
             default: None,
             required: false,
             value_type: FlagType::String,
+            constraints: Vec::new(),
         }
     }
 
@@ -270,8 +298,25 @@ impl Flag {
     /// let flag = Flag::new("count").value_type(FlagType::Int);
     /// ```
     #[must_use]
-    pub const fn value_type(mut self, value_type: FlagType) -> Self {
+    pub fn value_type(mut self, value_type: FlagType) -> Self {
         self.value_type = value_type;
+        self
+    }
+
+    /// Adds a constraint to this flag
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::{Flag, FlagConstraint};
+    ///
+    /// let flag = Flag::new("ssl")
+    ///     .constraint(FlagConstraint::RequiredIf("port".to_string()))
+    ///     .constraint(FlagConstraint::ConflictsWith(vec!["no-ssl".to_string()]));
+    /// ```
+    #[must_use]
+    pub fn constraint(mut self, constraint: FlagConstraint) -> Self {
+        self.constraints.push(constraint);
         self
     }
 
@@ -307,7 +352,7 @@ impl Flag {
     /// }
     /// ```
     pub fn parse_value(&self, input: &str) -> Result<FlagValue> {
-        match self.value_type {
+        match &self.value_type {
             FlagType::String => Ok(FlagValue::String(input.to_string())),
             FlagType::Bool => match input.to_lowercase().as_str() {
                 "true" | "t" | "1" | "yes" | "y" => Ok(FlagValue::Bool(true)),
@@ -324,8 +369,110 @@ impl Flag {
                 .parse::<f64>()
                 .map(FlagValue::Float)
                 .map_err(|_| Error::FlagParsing(format!("Invalid float value: {input}"))),
-            FlagType::StringSlice => Ok(FlagValue::StringSlice(vec![input.to_string()])),
+            FlagType::StringSlice | FlagType::StringArray => {
+                Ok(FlagValue::StringSlice(vec![input.to_string()]))
+            }
+            FlagType::Choice(choices) => {
+                if choices.contains(&input.to_string()) {
+                    Ok(FlagValue::String(input.to_string()))
+                } else {
+                    Err(Error::FlagParsing(format!(
+                        "Invalid choice: '{}'. Must be one of: {}",
+                        input,
+                        choices.join(", ")
+                    )))
+                }
+            }
+            FlagType::Range(min, max) => {
+                let value = input
+                    .parse::<i64>()
+                    .map_err(|_| Error::FlagParsing(format!("Invalid integer value: {input}")))?;
+                if value >= *min && value <= *max {
+                    Ok(FlagValue::Int(value))
+                } else {
+                    Err(Error::FlagParsing(format!(
+                        "Value {value} is out of range [{min}, {max}]"
+                    )))
+                }
+            }
+            FlagType::File => {
+                use std::path::Path;
+                let path = Path::new(input);
+                if path.exists() && path.is_file() {
+                    Ok(FlagValue::String(input.to_string()))
+                } else {
+                    Err(Error::FlagParsing(format!(
+                        "File not found or not a regular file: {input}"
+                    )))
+                }
+            }
+            FlagType::Directory => {
+                use std::path::Path;
+                let path = Path::new(input);
+                if path.exists() && path.is_dir() {
+                    Ok(FlagValue::String(input.to_string()))
+                } else {
+                    Err(Error::FlagParsing(format!(
+                        "Directory not found or not a directory: {input}"
+                    )))
+                }
+            }
         }
+    }
+
+    /// Validates this flag's constraints against the provided flags
+    ///
+    /// # Arguments
+    ///
+    /// * `flag_name` - The name of this flag
+    /// * `provided_flags` - Set of flag names that were provided
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if all constraints are satisfied
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::FlagParsing` if any constraint is violated
+    pub fn validate_constraints(
+        &self,
+        flag_name: &str,
+        provided_flags: &HashSet<String>,
+    ) -> Result<()> {
+        for constraint in &self.constraints {
+            match constraint {
+                FlagConstraint::RequiredIf(other_flag) => {
+                    if provided_flags.contains(other_flag) && !provided_flags.contains(flag_name) {
+                        return Err(Error::FlagParsing(format!(
+                            "Flag '--{flag_name}' is required when '--{other_flag}' is set"
+                        )));
+                    }
+                }
+                FlagConstraint::ConflictsWith(conflicting_flags) => {
+                    if provided_flags.contains(flag_name) {
+                        for conflict in conflicting_flags {
+                            if provided_flags.contains(conflict) {
+                                return Err(Error::FlagParsing(format!(
+                                    "Flag '--{flag_name}' conflicts with '--{conflict}'"
+                                )));
+                            }
+                        }
+                    }
+                }
+                FlagConstraint::Requires(required_flags) => {
+                    if provided_flags.contains(flag_name) {
+                        for required in required_flags {
+                            if !provided_flags.contains(required) {
+                                return Err(Error::FlagParsing(format!(
+                                    "Flag '--{flag_name}' requires '--{required}' to be set"
+                                )));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -414,5 +561,148 @@ mod tests {
         assert_eq!(flag.usage, "Enable verbose output");
         assert_eq!(flag.default, Some(FlagValue::Bool(false)));
         assert!(!flag.required);
+    }
+
+    #[test]
+    fn test_choice_flag() {
+        let choice_flag = Flag::new("environment").value_type(FlagType::Choice(vec![
+            "dev".to_string(),
+            "staging".to_string(),
+            "prod".to_string(),
+        ]));
+
+        assert_eq!(
+            choice_flag.parse_value("dev").unwrap(),
+            FlagValue::String("dev".to_string())
+        );
+        assert_eq!(
+            choice_flag.parse_value("staging").unwrap(),
+            FlagValue::String("staging".to_string())
+        );
+        assert!(choice_flag.parse_value("test").is_err());
+    }
+
+    #[test]
+    fn test_range_flag() {
+        let range_flag = Flag::new("port").value_type(FlagType::Range(1024, 65535));
+
+        assert_eq!(
+            range_flag.parse_value("8080").unwrap(),
+            FlagValue::Int(8080)
+        );
+        assert_eq!(
+            range_flag.parse_value("1024").unwrap(),
+            FlagValue::Int(1024)
+        );
+        assert_eq!(
+            range_flag.parse_value("65535").unwrap(),
+            FlagValue::Int(65535)
+        );
+        assert!(range_flag.parse_value("80").is_err());
+        assert!(range_flag.parse_value("70000").is_err());
+        assert!(range_flag.parse_value("not_a_number").is_err());
+    }
+
+    #[test]
+    fn test_file_flag() {
+        use std::fs::File;
+        use std::io::Write;
+        let temp_file = "test_file_flag.tmp";
+        let mut file = File::create(temp_file).unwrap();
+        writeln!(file, "test").unwrap();
+
+        let file_flag = Flag::new("config").value_type(FlagType::File);
+        assert_eq!(
+            file_flag.parse_value(temp_file).unwrap(),
+            FlagValue::String(temp_file.to_string())
+        );
+        assert!(file_flag.parse_value("nonexistent.file").is_err());
+
+        std::fs::remove_file(temp_file).unwrap();
+    }
+
+    #[test]
+    fn test_directory_flag() {
+        let dir_flag = Flag::new("output").value_type(FlagType::Directory);
+
+        // Test with current directory
+        assert_eq!(
+            dir_flag.parse_value(".").unwrap(),
+            FlagValue::String(".".to_string())
+        );
+
+        // Test with src directory (should exist in the project)
+        assert_eq!(
+            dir_flag.parse_value("src").unwrap(),
+            FlagValue::String("src".to_string())
+        );
+
+        assert!(dir_flag.parse_value("nonexistent_directory").is_err());
+    }
+
+    #[test]
+    fn test_string_array_flag() {
+        let array_flag = Flag::new("tags").value_type(FlagType::StringArray);
+
+        assert_eq!(
+            array_flag.parse_value("tag1").unwrap(),
+            FlagValue::StringSlice(vec!["tag1".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_flag_constraints() {
+        let mut provided_flags = HashSet::new();
+
+        // Test RequiredIf constraint
+        let ssl_flag = Flag::new("ssl").constraint(FlagConstraint::RequiredIf("port".to_string()));
+
+        // Should pass when port flag is not set
+        assert!(ssl_flag
+            .validate_constraints("ssl", &provided_flags)
+            .is_ok());
+
+        // Should fail when port is set but ssl is not
+        provided_flags.insert("port".to_string());
+        assert!(ssl_flag
+            .validate_constraints("ssl", &provided_flags)
+            .is_err());
+
+        // Should pass when both are set
+        provided_flags.insert("ssl".to_string());
+        assert!(ssl_flag
+            .validate_constraints("ssl", &provided_flags)
+            .is_ok());
+
+        // Test ConflictsWith constraint
+        let encrypt_flag = Flag::new("encrypt").constraint(FlagConstraint::ConflictsWith(vec![
+            "no-encrypt".to_string(),
+        ]));
+
+        provided_flags.clear();
+        provided_flags.insert("encrypt".to_string());
+        assert!(encrypt_flag
+            .validate_constraints("encrypt", &provided_flags)
+            .is_ok());
+
+        provided_flags.insert("no-encrypt".to_string());
+        assert!(encrypt_flag
+            .validate_constraints("encrypt", &provided_flags)
+            .is_err());
+
+        // Test Requires constraint
+        let output_flag =
+            Flag::new("output").constraint(FlagConstraint::Requires(vec!["format".to_string()]));
+
+        provided_flags.clear();
+        provided_flags.insert("output".to_string());
+        assert!(output_flag
+            .validate_constraints("output", &provided_flags)
+            .is_err());
+
+        provided_flags.insert("format".to_string());
+        assert!(output_flag
+            .validate_constraints("output", &provided_flags)
+            .is_ok());
     }
 }

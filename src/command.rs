@@ -11,7 +11,7 @@ use crate::flag::{Flag, FlagType, FlagValue};
 use crate::suggestion::{find_suggestions, DEFAULT_SUGGESTION_DISTANCE};
 use crate::terminal::{format_help_entry, get_terminal_width, wrap_text_to_terminal};
 use crate::validator::ArgValidator;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Type alias for the function that executes when a command runs
 pub type RunFunc = Box<dyn Fn(&mut Context) -> Result<()> + Send + Sync>;
@@ -278,7 +278,7 @@ impl Command {
         let args = ctx.args().to_vec();
 
         // Parse flags first, before checking for empty args
-        let (flags, remaining_args) = self.parse_flags(&args);
+        let (flags, remaining_args) = self.parse_flags(&args)?;
 
         *ctx.args_mut() = remaining_args;
 
@@ -290,6 +290,9 @@ impl Command {
                     subcommand.print_help();
                     return Ok(());
                 }
+
+                // Validate flags before setting them
+                self.validate_flags(&flags)?;
 
                 // Set flags and execute subcommand
                 for (name, value) in flags {
@@ -309,6 +312,9 @@ impl Command {
             self.print_help();
             return Ok(());
         }
+
+        // Validate flags before setting them
+        self.validate_flags(&flags)?;
 
         // Set flags
         for (name, value) in flags {
@@ -340,7 +346,7 @@ impl Command {
         }
     }
 
-    fn parse_flags(&self, args: &[String]) -> (HashMap<String, String>, Vec<String>) {
+    fn parse_flags(&self, args: &[String]) -> Result<(HashMap<String, String>, Vec<String>)> {
         let mut flags = HashMap::new();
         let mut remaining = Vec::new();
         let mut i = 0;
@@ -358,10 +364,17 @@ impl Command {
                 if flag_name == "help" {
                     flags.insert("help".to_string(), "true".to_string());
                 } else if let Some((name, value)) = flag_name.split_once('=') {
+                    // Validate the flag value
+                    if let Some(flag) = self.find_flag(name) {
+                        flag.parse_value(value)?;
+                    }
                     flags.insert(name.to_string(), value.to_string());
-                } else if let Some(_flag) = self.find_flag(flag_name) {
+                } else if let Some(flag) = self.find_flag(flag_name) {
                     if i + 1 < args.len() && !args[i + 1].starts_with('-') {
-                        flags.insert(flag_name.to_string(), args[i + 1].clone());
+                        let value = &args[i + 1];
+                        // Validate the flag value
+                        flag.parse_value(value)?;
+                        flags.insert(flag_name.to_string(), value.clone());
                         i += 1;
                     } else {
                         flags.insert(flag_name.to_string(), "true".to_string());
@@ -384,7 +397,10 @@ impl Command {
                             && i + 1 < args.len()
                             && !args[i + 1].starts_with('-')
                         {
-                            flags.insert(flag.name.clone(), args[i + 1].clone());
+                            let value = &args[i + 1];
+                            // Validate the flag value
+                            flag.parse_value(value)?;
+                            flags.insert(flag.name.clone(), value.clone());
                             i += 1;
                         } else {
                             flags.insert(flag.name.clone(), "true".to_string());
@@ -402,7 +418,7 @@ impl Command {
             i += 1;
         }
 
-        (flags, remaining)
+        Ok((flags, remaining))
     }
 
     /// Sets the argument completion function for this command
@@ -493,6 +509,55 @@ impl Command {
                 self.parent
                     .and_then(|parent| unsafe { (*parent).find_flag_by_short(short) })
             })
+    }
+
+    /// Validates all flags including required flags and constraints
+    fn validate_flags(&self, provided_flags: &HashMap<String, String>) -> Result<()> {
+        let provided_flag_names: HashSet<String> = provided_flags.keys().cloned().collect();
+
+        // Check required flags
+        for (flag_name, flag) in &self.flags {
+            if flag.required && !provided_flag_names.contains(flag_name) {
+                return Err(Error::FlagParsing(format!(
+                    "Required flag '--{flag_name}' not provided"
+                )));
+            }
+        }
+
+        // TODO: Fix unsafe parent flag validation
+        // Check parent flags if any
+        // if let Some(parent) = self.parent {
+        //     unsafe {
+        //         for (flag_name, flag) in &(*parent).flags {
+        //             if flag.required && !provided_flag_names.contains(flag_name) {
+        //                 return Err(Error::FlagParsing(format!(
+        //                     "Required flag '--{flag_name}' not provided"
+        //                 )));
+        //             }
+        //         }
+        //     }
+        // }
+
+        // Validate constraints for all flags
+        for (flag_name, flag) in &self.flags {
+            flag.validate_constraints(flag_name, &provided_flag_names)?;
+        }
+
+        // TODO: Fix unsafe parent flag constraint validation
+        // The current approach with raw pointers can lead to undefined behavior
+        // when the parent Command is moved or when accessing heap-allocated data
+        // through the pointer (like Vec<FlagConstraint>).
+        //
+        // Validate parent flag constraints
+        // if let Some(parent) = self.parent {
+        //     unsafe {
+        //         for (flag_name, flag) in &(*parent).flags {
+        //             flag.validate_constraints(flag_name, &provided_flag_names)?;
+        //         }
+        //     }
+        // }
+
+        Ok(())
     }
 
     /// Executes the command with lifecycle hooks including parent hooks
@@ -720,12 +785,73 @@ impl Command {
             .short
             .map_or_else(|| "    ".to_string(), |s| format!("-{s}, "));
 
+        // Handle special formatting for Choice and Range types
+        match &flag.value_type {
+            FlagType::Choice(choices) => {
+                let choices_str = choices.join("|");
+                let default = flag
+                    .default
+                    .as_ref()
+                    .map(|d| match d {
+                        FlagValue::String(s) => format!(" (default \"{s}\")"),
+                        _ => String::new(),
+                    })
+                    .unwrap_or_default();
+
+                let flag_name_formatted = format!("{} {{{}}}", flag.name, choices_str);
+                let left_part = format!(
+                    "      {}--{}",
+                    color::cyan(&short),
+                    color::cyan(&flag_name_formatted)
+                );
+
+                let description = format!("{}{}", flag.usage, color::dim(&default));
+                let terminal_width = get_terminal_width();
+                let left_column_width = 30;
+
+                let formatted =
+                    format_help_entry(&left_part, &description, left_column_width, terminal_width);
+                println!("{formatted}");
+                return;
+            }
+            FlagType::Range(min, max) => {
+                let default = flag
+                    .default
+                    .as_ref()
+                    .map(|d| match d {
+                        FlagValue::Int(i) => format!(" (default {i})"),
+                        _ => String::new(),
+                    })
+                    .unwrap_or_default();
+
+                let flag_name_formatted = format!("{} int[{}-{}]", flag.name, min, max);
+                let left_part = format!(
+                    "      {}--{}",
+                    color::cyan(&short),
+                    color::cyan(&flag_name_formatted)
+                );
+
+                let description = format!("{}{}", flag.usage, color::dim(&default));
+                let terminal_width = get_terminal_width();
+                let left_column_width = 30;
+
+                let formatted =
+                    format_help_entry(&left_part, &description, left_column_width, terminal_width);
+                println!("{formatted}");
+                return;
+            }
+            _ => {}
+        }
+
         let flag_type = match &flag.value_type {
             FlagType::String => " string",
             FlagType::Int => " int",
             FlagType::Float => " float",
             FlagType::Bool => "",
-            FlagType::StringSlice => " strings",
+            FlagType::StringSlice | FlagType::StringArray => " strings",
+            FlagType::File => " file",
+            FlagType::Directory => " dir",
+            FlagType::Choice(_) | FlagType::Range(_, _) => unreachable!(),
         };
 
         let default = flag

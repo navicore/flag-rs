@@ -240,6 +240,6 @@ pub use command::{Command, CommandBuilder};
 pub use completion::{CompletionFunc, CompletionResult};
 pub use context::Context;
 pub use error::{Error, Result};
-pub use flag::{Flag, FlagType, FlagValue};
+pub use flag::{Flag, FlagConstraint, FlagType, FlagValue};
 pub use shell::Shell;
 pub use validator::ArgValidator;
