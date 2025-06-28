@@ -3,7 +3,9 @@
 //! This module defines how completions are formatted for different shells,
 //! including support for descriptions where the shell supports them.
 
+use crate::active_help::ActiveHelp;
 use crate::completion::CompletionResult;
+use crate::context::Context;
 
 /// Represents the format in which completions should be returned
 #[derive(Debug, Clone, Copy)]
@@ -33,8 +35,8 @@ impl CompletionFormat {
     }
 
     /// Formats a completion result according to this format
-    pub fn format(self, result: &CompletionResult) -> Vec<String> {
-        match self {
+    pub fn format(self, result: &CompletionResult, ctx: Option<&Context>) -> Vec<String> {
+        let mut output = match self {
             Self::Simple | Self::Bash => {
                 // For bash and simple format, return just the values
                 result.values.clone()
@@ -51,7 +53,15 @@ impl CompletionFormat {
                 // Fish uses tab-separated format
                 Self::format_fish(result)
             }
+        };
+
+        // Add ActiveHelp messages if any (and context is provided)
+        if let Some(ctx) = ctx {
+            let help_messages = Self::format_active_help(&result.active_help, ctx, self);
+            output.extend(help_messages);
         }
+
+        output
     }
 
     /// Formats for human-readable display (not shell consumption)
@@ -171,6 +181,42 @@ impl CompletionFormat {
             })
             .collect()
     }
+
+    /// Formats `ActiveHelp` messages for the given shell
+    fn format_active_help(
+        help_messages: &[ActiveHelp],
+        ctx: &Context,
+        format: Self,
+    ) -> Vec<String> {
+        let mut formatted = Vec::new();
+
+        for help in help_messages {
+            if help.should_display(ctx) {
+                match format {
+                    Self::Bash => {
+                        // Bash: ActiveHelp messages are prefixed with a special marker
+                        // that completion scripts can recognize and display differently
+                        formatted.push(format!("_activehelp_ {}", help.message));
+                    }
+                    Self::Zsh => {
+                        // Zsh: Use a special format that won't be selectable
+                        // The completion script should recognize this pattern
+                        formatted.push(format!("_activehelp_::{}", help.message));
+                    }
+                    Self::Fish => {
+                        // Fish: Similar to Zsh, use a special prefix
+                        formatted.push(format!("_activehelp_\t{}", help.message));
+                    }
+                    Self::Simple | Self::Display => {
+                        // For simple/display format, just show the message with a prefix
+                        formatted.push(format!("[HELP] {}", help.message));
+                    }
+                }
+            }
+        }
+
+        formatted
+    }
 }
 
 #[cfg(test)]
@@ -184,7 +230,7 @@ mod tests {
             .add("value-without-desc")
             .add_with_description("value-with-desc", "This has a description");
 
-        let formatted = CompletionFormat::Zsh.format(&result);
+        let formatted = CompletionFormat::Zsh.format(&result, None);
 
         // Empty descriptions should still produce proper zsh format
         assert_eq!(formatted.len(), 2);
@@ -198,7 +244,7 @@ mod tests {
         // Test case that caused the invisible completion bug
         let result = CompletionResult::new().add("28cbc1d1-7750-4253-9f55-ae21b9156b9d");
 
-        let formatted = CompletionFormat::Zsh.format(&result);
+        let formatted = CompletionFormat::Zsh.format(&result, None);
 
         assert_eq!(formatted.len(), 1);
         // Must have the zsh format even without description
@@ -217,7 +263,7 @@ mod tests {
             .add("")
             .add_with_description("", "Empty value with description");
 
-        let formatted = CompletionFormat::Zsh.format(&result);
+        let formatted = CompletionFormat::Zsh.format(&result, None);
 
         // Even empty values should be formatted properly
         assert_eq!(formatted.len(), 2);
@@ -233,7 +279,7 @@ mod tests {
             .add("value'with'quotes")
             .add("value with spaces");
 
-        let formatted = CompletionFormat::Zsh.format(&result);
+        let formatted = CompletionFormat::Zsh.format(&result, None);
 
         // Colons should be escaped
         assert!(formatted[0].starts_with("value\\:with\\:colons:"));
@@ -250,7 +296,7 @@ mod tests {
             .add("no-desc-value")
             .add_with_description("with-desc", "Description");
 
-        let formatted = CompletionFormat::Fish.format(&result);
+        let formatted = CompletionFormat::Fish.format(&result, None);
 
         // Fish can have values without descriptions
         assert_eq!(formatted[0], "no-desc-value");
@@ -263,7 +309,7 @@ mod tests {
             .add("value1")
             .add_with_description("value2", "Description ignored for bash");
 
-        let formatted = CompletionFormat::Bash.format(&result);
+        let formatted = CompletionFormat::Bash.format(&result, None);
 
         // Bash format is just the values
         assert_eq!(formatted, vec!["value1", "value2"]);
@@ -276,7 +322,7 @@ mod tests {
 
         let result = CompletionResult::new().add_with_description(&long_value, &long_desc);
 
-        let formatted = CompletionFormat::Zsh.format(&result);
+        let formatted = CompletionFormat::Zsh.format(&result, None);
 
         // All lines should be <= 80 characters
         for line in formatted {
@@ -288,5 +334,42 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_active_help_formatting() {
+        let result = CompletionResult::new()
+            .add("option1")
+            .add_help_text("This is a help message")
+            .add_conditional_help("Conditional help", |_| true)
+            .add_conditional_help("Hidden help", |_| false);
+
+        let ctx = Context::new(vec![]);
+
+        // Test Bash format
+        let bash_formatted = CompletionFormat::Bash.format(&result, Some(&ctx));
+        assert!(bash_formatted.contains(&"option1".to_string()));
+        assert!(bash_formatted.contains(&"_activehelp_ This is a help message".to_string()));
+        assert!(bash_formatted.contains(&"_activehelp_ Conditional help".to_string()));
+        assert!(!bash_formatted.iter().any(|s| s.contains("Hidden help")));
+
+        // Test Zsh format
+        let zsh_formatted = CompletionFormat::Zsh.format(&result, Some(&ctx));
+        assert!(zsh_formatted
+            .iter()
+            .any(|s| s.contains("_activehelp_::This is a help message")));
+        assert!(zsh_formatted
+            .iter()
+            .any(|s| s.contains("_activehelp_::Conditional help")));
+
+        // Test Fish format
+        let fish_formatted = CompletionFormat::Fish.format(&result, Some(&ctx));
+        assert!(fish_formatted.contains(&"option1".to_string()));
+        assert!(fish_formatted.contains(&"_activehelp_\tThis is a help message".to_string()));
+        assert!(fish_formatted.contains(&"_activehelp_\tConditional help".to_string()));
+
+        // Test without context - no ActiveHelp should be shown
+        let no_ctx_formatted = CompletionFormat::Bash.format(&result, None);
+        assert!(!no_ctx_formatted.iter().any(|s| s.contains("_activehelp_")));
     }
 }

@@ -673,7 +673,7 @@ impl Command {
             collect_all_flags_with_descriptions(current_cmd, &mut flag_completions, prefix);
 
             let format = CompletionFormat::from_shell_type(shell_type.as_deref());
-            Ok(format.format(&flag_completions))
+            Ok(format.format(&flag_completions, Some(&ctx)))
         } else if current_word.starts_with('-') && current_word.len() > 1 {
             // For short flags, we don't complete (too complex)
             Ok(vec![])
@@ -685,7 +685,7 @@ impl Command {
                     if let Some(completion_func) = current_cmd.flag_completions.get(flag_name) {
                         let result = completion_func(&ctx, &current_word)?;
                         let format = CompletionFormat::from_shell_type(shell_type.as_deref());
-                        return Ok(format.format(&result));
+                        return Ok(format.format(&result, Some(&ctx)));
                     }
                 }
             }
@@ -741,14 +741,16 @@ impl Command {
                 let ctx = ctx.unwrap_or(&default_ctx);
                 if let Ok(result) = completion_func(ctx, prefix) {
                     let format = CompletionFormat::from_shell_type(shell_type);
-                    return format.format(&result);
+                    return format.format(&result, Some(ctx));
                 }
             }
         }
 
         // Format the results
         let format = CompletionFormat::from_shell_type(shell_type);
-        let mut suggestions = format.format(&completion_result);
+        let default_ctx = Context::new(vec![]);
+        let ctx_to_use = ctx.unwrap_or(&default_ctx);
+        let mut suggestions = format.format(&completion_result, Some(ctx_to_use));
         suggestions.sort();
         suggestions.dedup();
         suggestions

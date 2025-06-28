@@ -108,10 +108,41 @@ impl Command {
         )
         .unwrap();
         writeln!(&mut script, "        local lines=()").unwrap();
+        writeln!(&mut script, "        local help_messages=()").unwrap();
         writeln!(&mut script, "        while IFS= read -r line; do").unwrap();
-        writeln!(&mut script, "            lines+=(\"$line\")").unwrap();
+        writeln!(
+            &mut script,
+            "            if [[ \"$line\" == _activehelp_* ]]; then"
+        )
+        .unwrap();
+        writeln!(&mut script, "                # Extract help message").unwrap();
+        writeln!(
+            &mut script,
+            "                help_messages+=(\"${{line#_activehelp_ }}\")"
+        )
+        .unwrap();
+        writeln!(&mut script, "            else").unwrap();
+        writeln!(&mut script, "                lines+=(\"$line\")").unwrap();
+        writeln!(&mut script, "            fi").unwrap();
         writeln!(&mut script, "        done <<< \"$response\"").unwrap();
         writeln!(&mut script, "        COMPREPLY=( \"${{lines[@]}}\" )").unwrap();
+        writeln!(&mut script).unwrap();
+        writeln!(&mut script, "        # Display help messages if any").unwrap();
+        writeln!(
+            &mut script,
+            "        if [[ ${{#help_messages[@]}} -gt 0 ]]; then"
+        )
+        .unwrap();
+        writeln!(&mut script, "            printf '\\n'").unwrap();
+        writeln!(
+            &mut script,
+            "            for msg in \"${{help_messages[@]}}\"; do"
+        )
+        .unwrap();
+        writeln!(&mut script, "                printf '%s\\n' \"$msg\"").unwrap();
+        writeln!(&mut script, "            done").unwrap();
+        writeln!(&mut script, "            printf '\\n'").unwrap();
+        writeln!(&mut script, "        fi").unwrap();
         writeln!(&mut script, "    fi").unwrap();
         writeln!(&mut script, "}}").unwrap();
         writeln!(&mut script).unwrap();
@@ -186,11 +217,23 @@ impl Command {
         writeln!(&mut script, "    if [[ -n \"$response\" ]]; then").unwrap();
         writeln!(&mut script, "        local -a values").unwrap();
         writeln!(&mut script, "        local -a descriptions").unwrap();
+        writeln!(&mut script, "        local -a help_messages").unwrap();
         writeln!(&mut script, "        local line").unwrap();
         writeln!(&mut script).unwrap();
         writeln!(&mut script, "        # Parse response lines").unwrap();
         writeln!(&mut script, "        while IFS= read -r line; do").unwrap();
-        writeln!(&mut script, "            if [[ \"$line\" == *:* ]]; then").unwrap();
+        writeln!(
+            &mut script,
+            "            if [[ \"$line\" == _activehelp_::* ]]; then"
+        )
+        .unwrap();
+        writeln!(&mut script, "                # ActiveHelp message").unwrap();
+        writeln!(
+            &mut script,
+            "                help_messages+=(\"${{line#_activehelp_::}}\")"
+        )
+        .unwrap();
+        writeln!(&mut script, "            elif [[ \"$line\" == *:* ]]; then").unwrap();
         writeln!(&mut script, "                # Line has description").unwrap();
         writeln!(&mut script, "                values+=(\"${{line%%:*}}\")").unwrap();
         writeln!(
@@ -204,6 +247,31 @@ impl Command {
         writeln!(&mut script, "                descriptions+=(\"\")").unwrap();
         writeln!(&mut script, "            fi").unwrap();
         writeln!(&mut script, "        done <<< \"$response\"").unwrap();
+        writeln!(&mut script).unwrap();
+        writeln!(&mut script, "        # Display ActiveHelp messages if any").unwrap();
+        writeln!(
+            &mut script,
+            "        if [[ ${{#help_messages[@]}} -gt 0 ]]; then"
+        )
+        .unwrap();
+        writeln!(&mut script, "            local formatted_help=()").unwrap();
+        writeln!(
+            &mut script,
+            "            for msg in \"${{help_messages[@]}}\"; do"
+        )
+        .unwrap();
+        writeln!(
+            &mut script,
+            "                formatted_help+=(\"-- $msg --\")"
+        )
+        .unwrap();
+        writeln!(&mut script, "            done").unwrap();
+        writeln!(
+            &mut script,
+            "            compadd -x \"${{(j: :)formatted_help}}\""
+        )
+        .unwrap();
+        writeln!(&mut script, "        fi").unwrap();
         writeln!(&mut script).unwrap();
         writeln!(&mut script, "        # Add completions with descriptions").unwrap();
         writeln!(&mut script, "        if [[ ${{#descriptions[@]}} -gt 0 ]] && [[ -n \"${{descriptions[*]// }}\" ]]; then").unwrap();
@@ -245,8 +313,30 @@ impl Command {
         .unwrap();
         writeln!(&mut script, "    set -l response (env {}_COMPLETE=fish $cmd[1] __complete $cmd[2..-1] $current 2>/dev/null)", self.name().to_uppercase()).unwrap();
         writeln!(&mut script).unwrap();
+        writeln!(&mut script, "    # Process response and handle ActiveHelp").unwrap();
+        writeln!(&mut script, "    set -l help_messages").unwrap();
         writeln!(&mut script, "    for line in $response").unwrap();
-        writeln!(&mut script, "        echo $line").unwrap();
+        writeln!(
+            &mut script,
+            "        if string match -q '_activehelp_*' -- $line"
+        )
+        .unwrap();
+        writeln!(&mut script, "            # Extract help message").unwrap();
+        writeln!(
+            &mut script,
+            "            set -a help_messages (string replace '_activehelp_\t' '' -- $line)"
+        )
+        .unwrap();
+        writeln!(&mut script, "        else").unwrap();
+        writeln!(&mut script, "            echo $line").unwrap();
+        writeln!(&mut script, "        end").unwrap();
+        writeln!(&mut script, "    end").unwrap();
+        writeln!(&mut script).unwrap();
+        writeln!(&mut script, "    # Display help messages if any").unwrap();
+        writeln!(&mut script, "    if test (count $help_messages) -gt 0").unwrap();
+        writeln!(&mut script, "        for msg in $help_messages").unwrap();
+        writeln!(&mut script, "            echo \"» $msg\" >&2").unwrap();
+        writeln!(&mut script, "        end").unwrap();
         writeln!(&mut script, "    end").unwrap();
         writeln!(&mut script, "end").unwrap();
         writeln!(&mut script).unwrap();

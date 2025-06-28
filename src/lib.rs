@@ -232,6 +232,9 @@ pub mod validator;
 /// Command and flag suggestion support
 pub mod suggestion;
 
+/// ActiveHelp system for contextual hints
+pub mod active_help;
+
 // Re-export main types for convenience
 pub use command::{Command, CommandBuilder};
 pub use completion::{CompletionFunc, CompletionResult};
