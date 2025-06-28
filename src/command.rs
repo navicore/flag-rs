@@ -8,6 +8,9 @@ use crate::completion_format::CompletionFormat;
 use crate::context::Context;
 use crate::error::{Error, Result};
 use crate::flag::{Flag, FlagType, FlagValue};
+use crate::suggestion::{find_suggestions, DEFAULT_SUGGESTION_DISTANCE};
+use crate::terminal::{format_help_entry, get_terminal_width, wrap_text_to_terminal};
+use crate::validator::ArgValidator;
 use std::collections::HashMap;
 
 /// Type alias for the function that executes when a command runs
@@ -50,6 +53,9 @@ pub struct Command {
     parent: Option<*mut Self>,
     arg_completions: Option<CompletionFunc>,
     flag_completions: HashMap<String, CompletionFunc>,
+    arg_validator: Option<ArgValidator>,
+    suggestions_enabled: bool,
+    suggestion_distance: usize,
 }
 
 unsafe impl Send for Command {}
@@ -100,6 +106,9 @@ impl Command {
             parent: None,
             arg_completions: None,
             flag_completions: HashMap::new(),
+            arg_validator: None,
+            suggestions_enabled: true,
+            suggestion_distance: DEFAULT_SUGGESTION_DISTANCE,
         }
     }
 
@@ -279,14 +288,26 @@ impl Command {
 
         // No subcommand found, try to run this command's function
         if let Some(ref run) = self.run {
+            // Validate arguments before running
+            if let Some(ref validator) = self.arg_validator {
+                validator.validate(ctx.args())?;
+            }
             run(ctx)
         } else if ctx.args().is_empty() {
             // No args and no run function - show help
             Err(Error::SubcommandRequired(self.name.clone()))
         } else {
-            Err(Error::CommandNotFound(
-                ctx.args().first().unwrap_or(&String::new()).clone(),
-            ))
+            let unknown_command = ctx.args().first().unwrap_or(&String::new()).clone();
+            let suggestions = if self.suggestions_enabled {
+                self.find_command_suggestions(&unknown_command)
+            } else {
+                Vec::new()
+            };
+
+            Err(Error::CommandNotFound {
+                command: unknown_command,
+                suggestions,
+            })
         }
     }
 
@@ -457,9 +478,11 @@ impl Command {
     pub fn print_help(&self) {
         use crate::color;
 
-        // Print usage
-        println!("{}", self.long.as_str());
-        println!();
+        // Print description with text wrapping
+        if !self.long.is_empty() {
+            println!("{}", wrap_text_to_terminal(&self.long, None));
+            println!();
+        }
 
         // Print usage line
         print!("{}:\n  {}", color::bold("Usage"), self.name);
@@ -477,8 +500,17 @@ impl Command {
             let mut commands: Vec<_> = self.subcommands.values().collect();
             commands.sort_by_key(|cmd| &cmd.name);
 
+            let terminal_width = get_terminal_width();
+            let left_column_width = 20;
+
             for cmd in commands {
-                println!("  {:<20} {}", color::green(&cmd.name), cmd.short);
+                let formatted = format_help_entry(
+                    &format!("  {}", color::green(&cmd.name)),
+                    &cmd.short,
+                    left_column_width + 2, // account for the "  " prefix
+                    terminal_width,
+                );
+                println!("{formatted}");
             }
             println!();
         }
@@ -547,13 +579,26 @@ impl Command {
             })
             .unwrap_or_default();
 
-        println!(
-            "      {}--{:<15}  {}{}",
+        let flag_name_formatted = format!("{}{flag_type}", flag.name);
+        let left_part = format!(
+            "      {}--{}",
             color::cyan(&short),
-            color::cyan(&format!("{}{flag_type}", flag.name)),
-            flag.usage,
-            color::dim(&default)
+            color::cyan(&flag_name_formatted)
         );
+
+        let description = format!("{}{}", flag.usage, color::dim(&default));
+        let terminal_width = get_terminal_width();
+        let left_column_width = 30; // Adjust based on typical flag length
+
+        let formatted =
+            format_help_entry(&left_part, &description, left_column_width, terminal_width);
+        println!("{formatted}");
+    }
+
+    /// Finds command suggestions based on similarity
+    fn find_command_suggestions(&self, input: &str) -> Vec<String> {
+        let candidates: Vec<String> = self.subcommands.keys().cloned().collect();
+        find_suggestions(input, &candidates, self.suggestion_distance)
     }
 
     /// Handles shell completion requests
@@ -628,7 +673,7 @@ impl Command {
             collect_all_flags_with_descriptions(current_cmd, &mut flag_completions, prefix);
 
             let format = CompletionFormat::from_shell_type(shell_type.as_deref());
-            Ok(format.format(&flag_completions))
+            Ok(format.format(&flag_completions, Some(&ctx)))
         } else if current_word.starts_with('-') && current_word.len() > 1 {
             // For short flags, we don't complete (too complex)
             Ok(vec![])
@@ -640,7 +685,7 @@ impl Command {
                     if let Some(completion_func) = current_cmd.flag_completions.get(flag_name) {
                         let result = completion_func(&ctx, &current_word)?;
                         let format = CompletionFormat::from_shell_type(shell_type.as_deref());
-                        return Ok(format.format(&result));
+                        return Ok(format.format(&result, Some(&ctx)));
                     }
                 }
             }
@@ -696,14 +741,16 @@ impl Command {
                 let ctx = ctx.unwrap_or(&default_ctx);
                 if let Ok(result) = completion_func(ctx, prefix) {
                     let format = CompletionFormat::from_shell_type(shell_type);
-                    return format.format(&result);
+                    return format.format(&result, Some(ctx));
                 }
             }
         }
 
         // Format the results
         let format = CompletionFormat::from_shell_type(shell_type);
-        let mut suggestions = format.format(&completion_result);
+        let default_ctx = Context::new(vec![]);
+        let ctx_to_use = ctx.unwrap_or(&default_ctx);
+        let mut suggestions = format.format(&completion_result, Some(ctx_to_use));
         suggestions.sort();
         suggestions.dedup();
         suggestions
@@ -899,6 +946,32 @@ impl CommandBuilder {
         self
     }
 
+    /// Sets the argument validator for this command
+    ///
+    /// The validator will be called before the run function to ensure
+    /// arguments meet the specified constraints.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::{CommandBuilder, ArgValidator};
+    ///
+    /// let cmd = CommandBuilder::new("delete")
+    ///     .args(ArgValidator::MinimumArgs(1))
+    ///     .run(|ctx| {
+    ///         for file in ctx.args() {
+    ///             println!("Deleting: {}", file);
+    ///         }
+    ///         Ok(())
+    ///     })
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn args(mut self, validator: ArgValidator) -> Self {
+        self.command.arg_validator = Some(validator);
+        self
+    }
+
     /// Sets the argument completion function
     ///
     /// This function is called when the user presses TAB to complete arguments.
@@ -960,6 +1033,46 @@ impl CommandBuilder {
         F: Fn(&Context, &str) -> Result<CompletionResult> + Send + Sync + 'static,
     {
         self.command.set_flag_completion(flag_name, f);
+        self
+    }
+
+    /// Enables or disables command suggestions
+    ///
+    /// When enabled, the framework will suggest similar commands when
+    /// a user types an unknown command.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("myapp")
+    ///     .suggestions(true)  // Enable suggestions (default)
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn suggestions(mut self, enabled: bool) -> Self {
+        self.command.suggestions_enabled = enabled;
+        self
+    }
+
+    /// Sets the maximum Levenshtein distance for suggestions
+    ///
+    /// Commands within this distance will be suggested as alternatives.
+    /// Default is 2.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("myapp")
+    ///     .suggestion_distance(3)  // Allow more distant suggestions
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn suggestion_distance(mut self, distance: usize) -> Self {
+        self.command.suggestion_distance = distance;
         self
     }
 
@@ -1130,12 +1243,12 @@ mod tests {
         // Unknown subcommand
         let result = cmd.execute(vec!["unknown".to_string()]);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), Error::CommandNotFound(_)));
+        assert!(matches!(result.unwrap_err(), Error::CommandNotFound { .. }));
 
         // Unknown flag (now treated as argument, so it becomes unknown command)
         let result = cmd.execute(vec!["--unknown".to_string()]);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), Error::CommandNotFound(_)));
+        assert!(matches!(result.unwrap_err(), Error::CommandNotFound { .. }));
     }
 
     #[test]

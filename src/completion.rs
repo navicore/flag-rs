@@ -4,6 +4,7 @@
 //! computed at runtime when the user presses TAB, rather than being hardcoded
 //! at compile time.
 
+use crate::active_help::ActiveHelp;
 use crate::context::Context;
 use crate::error::Result;
 
@@ -34,6 +35,8 @@ pub struct CompletionResult {
     pub values: Vec<String>,
     /// Optional descriptions for each value
     pub descriptions: Vec<String>,
+    /// `ActiveHelp` messages to display
+    pub active_help: Vec<ActiveHelp>,
 }
 
 impl CompletionResult {
@@ -43,6 +46,7 @@ impl CompletionResult {
         Self {
             values: Vec::new(),
             descriptions: Vec::new(),
+            active_help: Vec::new(),
         }
     }
 
@@ -118,6 +122,76 @@ impl CompletionResult {
         }
         self
     }
+
+    /// Adds an `ActiveHelp` message
+    ///
+    /// # Arguments
+    ///
+    /// * `help` - The `ActiveHelp` message to add
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::completion::CompletionResult;
+    /// use flag_rs::active_help::ActiveHelp;
+    ///
+    /// let result = CompletionResult::new()
+    ///     .add_help(ActiveHelp::new("Press TAB to see available options"));
+    /// ```
+    #[must_use]
+    pub fn add_help(mut self, help: ActiveHelp) -> Self {
+        self.active_help.push(help);
+        self
+    }
+
+    /// Adds an `ActiveHelp` message from a string
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The help message text
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::completion::CompletionResult;
+    ///
+    /// let result = CompletionResult::new()
+    ///     .add_help_text("Use -n <namespace> to filter results");
+    /// ```
+    #[must_use]
+    pub fn add_help_text<S: Into<String>>(mut self, message: S) -> Self {
+        self.active_help.push(ActiveHelp::new(message));
+        self
+    }
+
+    /// Adds a conditional `ActiveHelp` message
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The help message text
+    /// * `condition` - Function that determines if help should be shown
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::completion::CompletionResult;
+    ///
+    /// let result = CompletionResult::new()
+    ///     .add_conditional_help(
+    ///         "Tip: Use --format json for machine-readable output",
+    ///         |ctx| ctx.flag("format").is_none()
+    ///     );
+    /// ```
+    #[must_use]
+    pub fn add_conditional_help<S, F>(mut self, message: S, condition: F) -> Self
+    where
+        S: Into<String>,
+        F: Fn(&Context) -> bool + Send + Sync + 'static,
+    {
+        self.active_help
+            .push(ActiveHelp::with_condition(message, condition));
+        self
+    }
 }
 
 impl Default for CompletionResult {
@@ -190,5 +264,18 @@ mod tests {
 
         assert_eq!(result.values[2], "option3");
         assert_eq!(result.descriptions[2], "");
+    }
+
+    #[test]
+    fn test_completion_result_with_active_help() {
+        let result = CompletionResult::new()
+            .add("option1")
+            .add_help_text("This is a help message")
+            .add_conditional_help("Conditional help", |_| true);
+
+        assert_eq!(result.values.len(), 1);
+        assert_eq!(result.active_help.len(), 2);
+        assert_eq!(result.active_help[0].message, "This is a help message");
+        assert_eq!(result.active_help[1].message, "Conditional help");
     }
 }
