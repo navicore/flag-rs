@@ -130,6 +130,63 @@ descriptions are provided, they are handled appropriately by each shell:
 For Zsh and Fish, descriptions appear alongside completions in the shell's native
 format, providing helpful context when selecting options.
 
+### Completion Caching
+
+For expensive completion operations (API calls, file system scans), use the built-in
+caching mechanism:
+
+```rust
+use flag_rs::completion_cache::CompletionCache;
+use std::time::Duration;
+use std::sync::Arc;
+
+let cache = Arc::new(CompletionCache::new(Duration::from_secs(5)));
+
+CommandBuilder::new("get")
+    .arg_completion({
+        let cache = Arc::clone(&cache);
+        move |ctx, prefix| {
+            let key = CompletionCache::make_key(
+                &["get".to_string()], 
+                prefix, 
+                ctx.flags()
+            );
+            
+            // Check cache first
+            if let Some(cached) = cache.get(&key) {
+                return Ok(cached);
+            }
+            
+            // Expensive operation
+            let result = fetch_from_api()?;
+            
+            // Cache the result
+            cache.put(key, result.clone());
+            Ok(result)
+        }
+    })
+    .build()
+```
+
+### Completion Timeouts
+
+Protect against slow completion functions that could hang the shell:
+
+```rust
+use flag_rs::completion_timeout::make_timeout_completion;
+use std::time::Duration;
+
+CommandBuilder::new("search")
+    .arg_completion(make_timeout_completion(
+        Duration::from_millis(100),
+        |ctx, prefix| {
+            // This will timeout if it takes > 100ms
+            search_database(prefix)
+        }
+    ))
+    .build()
+```
+
 ## Modular Command Structure
 
 For larger applications, Flag supports a modular structure where commands
@@ -204,6 +261,55 @@ Flag-rs supports multiple value types:
 - `Int` - Integer values
 - `Float` - Floating point values
 - `StringSlice` - Multiple string values
+- `StringArray` - Array of string values
+- `Choice(Vec<String>)` - Enumerated choices with validation
+- `Range(i64, i64)` - Integer range validation
+- `File` - File path validation
+- `Directory` - Directory path validation
+
+### Advanced Flag Features
+
+#### Flag Constraints
+
+Flag-rs supports advanced flag relationships:
+
+```rust
+use flag_rs::{Flag, FlagConstraint};
+
+// Required if another flag is set
+Flag::new("cert")
+    .value_type(FlagType::File)
+    .constraint(FlagConstraint::RequiredIf("tls".to_string()))
+
+// Conflicts with other flags
+Flag::new("json")
+    .value_type(FlagType::Bool)
+    .constraint(FlagConstraint::ConflictsWith(vec!["yaml".to_string(), "xml".to_string()]))
+
+// Requires other flags
+Flag::new("ssl-verify")
+    .value_type(FlagType::Bool)
+    .constraint(FlagConstraint::Requires(vec!["ssl".to_string()]))
+```
+
+#### Choice Validation
+
+```rust
+Flag::new("environment")
+    .value_type(FlagType::Choice(vec![
+        "dev".to_string(),
+        "staging".to_string(),
+        "prod".to_string()
+    ]))
+```
+
+#### Range Validation
+
+```rust
+Flag::new("workers")
+    .value_type(FlagType::Range(1, 100))
+    .default(FlagValue::Int(4))
+```
 
 ## Error Handling
 
@@ -228,6 +334,57 @@ See the `examples/` directory for complete examples:
 
 - `kubectl.rs` - A simple kubectl-like CLI demonstrating dynamic completions
 - `kubectl_modular/` - A modular kubectl implementation showing command self-registration
+- `advanced_flags_demo.rs` - Demonstrates advanced flag types and constraints
+- `caching_demo.rs` - Shows completion caching for expensive operations
+- `timeout_demo.rs` - Demonstrates timeout protection for slow completions
+- `memory_optimization_demo.rs` - Shows memory optimization techniques
+- `benchmark.rs` - Performance benchmarking suite
+
+## Performance & Memory Optimization
+
+Flag-rs includes several performance optimizations for large-scale CLI applications:
+
+### String Interning
+
+Reduce memory usage for repeated strings:
+
+```rust
+use flag_rs::string_pool;
+
+// Intern frequently used strings
+let cmd_name = string_pool::intern("kubectl");
+let flag_name = string_pool::intern("namespace");
+```
+
+### Optimized Completions
+
+Use memory-efficient completion structures:
+
+```rust
+use flag_rs::completion_optimized::{CompletionResultOptimized, CompletionItem};
+use std::borrow::Cow;
+
+CompletionResultOptimized::new()
+    .add_with_description(
+        Cow::Borrowed("static-value"),  // No allocation
+        Cow::Borrowed("Static description")
+    )
+```
+
+### Performance Characteristics
+
+Based on our benchmarks:
+
+| Operation | Performance | Notes |
+|-----------|-------------|-------|
+| Simple command creation | ~500 ns | 2 flags |
+| Complex CLI (50 subcommands) | ~150 μs | 500 total commands |
+| Flag parsing | ~2 μs | Per flag |
+| Subcommand lookup | ~50 ns | O(1) HashMap |
+| Dynamic completion | ~15 μs | 100 items |
+| Cached completion | ~1 μs | Cache hit |
+
+See `examples/benchmark.rs` for detailed performance measurements.
 
 ## Design Philosophy
 

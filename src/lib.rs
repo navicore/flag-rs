@@ -15,6 +15,11 @@
 //! - **Shell Completion**: Generate completion scripts for bash, zsh, and fish
 //! - **Colored Output**: Beautiful help messages with automatic TTY detection
 //! - **Flexible Architecture**: Use builder pattern or direct construction
+//! - **Advanced Flag Types**: Choice, Range, File, Directory validation
+//! - **Flag Constraints**: `RequiredIf`, `ConflictsWith`, `Requires` relationships
+//! - **Completion Caching**: Cache expensive completion operations
+//! - **Timeout Protection**: Prevent slow completions from hanging
+//! - **Memory Optimization**: String interning and efficient data structures
 //!
 //! ## Quick Start
 //!
@@ -139,6 +144,78 @@
 //!
 //! # Fish
 //! myapp completion fish | source
+//! ```
+//!
+//! ## Advanced Flag Types
+//!
+//! Flag-rs now supports advanced flag types with built-in validation:
+//!
+//! ```rust
+//! use flag_rs::{CommandBuilder, Flag, FlagType, FlagValue};
+//!
+//! let cmd = CommandBuilder::new("config")
+//!     .flag(
+//!         Flag::new("environment")
+//!             .value_type(FlagType::Choice(vec![
+//!                 "dev".to_string(),
+//!                 "staging".to_string(),
+//!                 "prod".to_string()
+//!             ]))
+//!     )
+//!     .flag(
+//!         Flag::new("workers")
+//!             .value_type(FlagType::Range(1, 16))
+//!             .default(FlagValue::Int(4))
+//!     )
+//!     .flag(
+//!         Flag::new("config-file")
+//!             .value_type(FlagType::File)
+//!     )
+//!     .build();
+//! ```
+//!
+//! ## Flag Constraints
+//!
+//! Define relationships between flags:
+//!
+//! ```rust
+//! use flag_rs::{Flag, FlagType, FlagConstraint};
+//!
+//! let ssl_cert_flag = Flag::new("ssl-cert")
+//!     .value_type(FlagType::File)
+//!     .constraint(FlagConstraint::RequiredIf("ssl".to_string()));
+//!
+//! let json_flag = Flag::new("json")
+//!     .value_type(FlagType::Bool)
+//!     .constraint(FlagConstraint::ConflictsWith(vec!["xml".to_string()]));
+//! ```
+//!
+//! ## Performance Features
+//!
+//! ### Completion Caching
+//!
+//! Cache expensive completion operations:
+//!
+//! ```rust,ignore
+//! use flag_rs::completion_cache::CompletionCache;
+//! use std::sync::Arc;
+//! use std::time::Duration;
+//!
+//! let cache = Arc::new(CompletionCache::new(Duration::from_secs(5)));
+//! ```
+//!
+//! ### Timeout Protection
+//!
+//! Prevent slow completions from hanging:
+//!
+//! ```rust,ignore
+//! use flag_rs::completion_timeout::make_timeout_completion;
+//! use std::time::Duration;
+//!
+//! let safe_completion = make_timeout_completion(
+//!     Duration::from_millis(100),
+//!     expensive_completion_fn
+//! );
 //! ```
 //!
 //! ## Modular Command Structure
