@@ -179,7 +179,7 @@ fn test_terminal_width_snapshot() {
 
 /// Helper to create a visual test output for manual verification
 #[test]
-#[ignore] // Run with: cargo test -- --ignored --nocapture
+#[ignore = "Visual test requiring manual inspection of colored output"]
 fn visual_terminal_test() {
     println!("\n=== Terminal Width Detection ===");
     println!("Current terminal width: {}", get_terminal_width());
