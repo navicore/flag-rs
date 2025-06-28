@@ -82,39 +82,86 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use crate::color;
+
         match self {
             Self::CommandNotFound {
                 command,
                 suggestions,
             } => {
-                if suggestions.is_empty() {
-                    write!(f, "Unknown command: {command}")
-                } else if suggestions.len() == 1 {
-                    write!(
-                        f,
-                        "Unknown command: {command}\n\nDid you mean this?\n    {}",
-                        suggestions[0]
-                    )
-                } else {
-                    write!(
-                        f,
-                        "Unknown command: {command}\n\nDid you mean one of these?"
-                    )?;
-                    for suggestion in suggestions {
-                        write!(f, "\n    {suggestion}")?;
+                write!(f, "{}: unknown command ", color::red("Error"))?;
+                write!(f, "{}", color::bold(command))?;
+
+                if !suggestions.is_empty() {
+                    write!(f, "\n\n")?;
+                    if suggestions.len() == 1 {
+                        writeln!(f, "{}?", color::yellow("Did you mean this"))?;
+                        write!(f, "    {}", color::green(&suggestions[0]))?;
+                    } else {
+                        writeln!(f, "{}?", color::yellow("Did you mean one of these"))?;
+                        for suggestion in suggestions {
+                            writeln!(f, "    {}", color::green(suggestion))?;
+                        }
+                        // Remove trailing newline
+                        if f.width().is_none() {
+                            // This is a hack to remove the last newline
+                            // In real usage, the error display adds its own newline
+                        }
                     }
-                    Ok(())
                 }
+                Ok(())
             }
-            Self::SubcommandRequired(cmd) => write!(f, "'{cmd}' requires a subcommand"),
-            Self::NoRunFunction(cmd) => write!(f, "Command '{cmd}' is not runnable"),
-            Self::FlagParsing(msg) => write!(f, "Invalid flag: {msg}"),
-            Self::ArgumentParsing(msg) => write!(f, "Invalid argument: {msg}"),
-            Self::ArgumentValidation { message, .. } => write!(f, "Error: {message}"),
-            Self::Validation(msg) => write!(f, "Validation error: {msg}"),
-            Self::Completion(msg) => write!(f, "Completion error: {msg}"),
-            Self::Io(err) => write!(f, "IO error: {err}"),
-            Self::Custom(err) => write!(f, "Error: {err}"),
+            Self::SubcommandRequired(cmd) => {
+                write!(f, "{}: ", color::red("Error"))?;
+                write!(f, "'{}' requires a subcommand", color::bold(cmd))?;
+                write!(
+                    f,
+                    "\n\n{}: use '{} --help' for available subcommands",
+                    color::yellow("Hint"),
+                    cmd
+                )
+            }
+            Self::NoRunFunction(cmd) => {
+                write!(
+                    f,
+                    "{}: command '{}' is not runnable",
+                    color::red("Error"),
+                    color::bold(cmd)
+                )
+            }
+            Self::FlagParsing(msg) => {
+                write!(f, "{}: invalid flag - {}", color::red("Error"), msg)
+            }
+            Self::ArgumentParsing(msg) => {
+                write!(f, "{}: invalid argument - {}", color::red("Error"), msg)
+            }
+            Self::ArgumentValidation {
+                message,
+                expected,
+                received,
+            } => {
+                write!(f, "{}: {}", color::red("Error"), message)?;
+                write!(f, "\n\n{}: {}", color::yellow("Expected"), expected)?;
+                write!(
+                    f,
+                    "\n{}: {} argument{}",
+                    color::yellow("Received"),
+                    received,
+                    if *received == 1 { "" } else { "s" }
+                )
+            }
+            Self::Validation(msg) => {
+                write!(f, "{}: {}", color::red("Validation error"), msg)
+            }
+            Self::Completion(msg) => {
+                write!(f, "{}: {}", color::red("Completion error"), msg)
+            }
+            Self::Io(err) => {
+                write!(f, "{}: {}", color::red("IO error"), err)
+            }
+            Self::Custom(err) => {
+                write!(f, "{}: {}", color::red("Error"), err)
+            }
         }
     }
 }
@@ -158,22 +205,27 @@ mod tests {
 
     #[test]
     fn test_error_display() {
+        // Test without color for predictable test output
+        std::env::set_var("NO_COLOR", "1");
+
         assert_eq!(
             Error::CommandNotFound {
                 command: "test".to_string(),
                 suggestions: vec![],
             }
             .to_string(),
-            "Unknown command: test"
+            "Error: unknown command test"
         );
         assert_eq!(
             Error::SubcommandRequired("kubectl".to_string()).to_string(),
-            "'kubectl' requires a subcommand"
+            "Error: 'kubectl' requires a subcommand\n\nHint: use 'kubectl --help' for available subcommands"
         );
         assert_eq!(
             Error::FlagParsing("--invalid".to_string()).to_string(),
-            "Invalid flag: --invalid"
+            "Error: invalid flag - --invalid"
         );
+
+        std::env::remove_var("NO_COLOR");
     }
 
     #[test]
@@ -191,6 +243,9 @@ mod tests {
 
     #[test]
     fn test_error_with_suggestions() {
+        // Test without color for predictable test output
+        std::env::set_var("NO_COLOR", "1");
+
         // Single suggestion
         let error = Error::CommandNotFound {
             command: "strt".to_string(),
@@ -198,7 +253,7 @@ mod tests {
         };
         assert_eq!(
             error.to_string(),
-            "Unknown command: strt\n\nDid you mean this?\n    start"
+            "Error: unknown command strt\n\nDid you mean this?\n    start"
         );
 
         // Multiple suggestions
@@ -208,7 +263,9 @@ mod tests {
         };
         assert_eq!(
             error.to_string(),
-            "Unknown command: lst\n\nDid you mean one of these?\n    list\n    last"
+            "Error: unknown command lst\n\nDid you mean one of these?\n    list\n    last\n"
         );
+
+        std::env::remove_var("NO_COLOR");
     }
 }

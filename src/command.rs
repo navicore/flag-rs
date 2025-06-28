@@ -50,6 +50,8 @@ pub struct Command {
     aliases: Vec<String>,
     short: String,
     long: String,
+    examples: Vec<String>,
+    group_id: Option<String>,
     subcommands: HashMap<String, Self>,
     flags: HashMap<String, Flag>,
     run: Option<RunFunc>,
@@ -108,6 +110,8 @@ impl Command {
             aliases: Vec::new(),
             short: String::new(),
             long: String::new(),
+            examples: Vec::new(),
+            group_id: None,
             subcommands: HashMap::new(),
             flags: HashMap::new(),
             run: None,
@@ -595,23 +599,72 @@ impl Command {
 
         // Print available commands
         if !self.subcommands.is_empty() {
-            println!("{}:", color::bold("Available Commands"));
             let mut commands: Vec<_> = self.subcommands.values().collect();
             commands.sort_by_key(|cmd| &cmd.name);
 
-            let terminal_width = get_terminal_width();
-            let left_column_width = 20;
-
+            // Group commands by their group_id
+            let mut grouped: std::collections::BTreeMap<Option<String>, Vec<&Self>> =
+                std::collections::BTreeMap::new();
             for cmd in commands {
-                let formatted = format_help_entry(
-                    &format!("  {}", color::green(&cmd.name)),
-                    &cmd.short,
-                    left_column_width + 2, // account for the "  " prefix
-                    terminal_width,
-                );
-                println!("{formatted}");
+                grouped.entry(cmd.group_id.clone()).or_default().push(cmd);
             }
-            println!();
+
+            let terminal_width = get_terminal_width();
+            let left_column_width = 24;
+
+            // Print commands without groups first
+            if let Some(ungrouped) = grouped.get(&None) {
+                println!("{}:", color::bold("Available Commands"));
+                for cmd in ungrouped {
+                    // Build command name with aliases
+                    let mut name_with_aliases = color::green(&cmd.name);
+                    if !cmd.aliases.is_empty() {
+                        let aliases = cmd.aliases.join(", ");
+                        name_with_aliases = format!(
+                            "{} {}",
+                            name_with_aliases,
+                            color::dim(&format!("({aliases})"))
+                        );
+                    }
+
+                    let formatted = format_help_entry(
+                        &format!("  {name_with_aliases}"),
+                        &cmd.short,
+                        left_column_width + 2, // account for the "  " prefix
+                        terminal_width,
+                    );
+                    println!("{formatted}");
+                }
+                println!();
+            }
+
+            // Print grouped commands
+            for (group_id, cmds) in grouped {
+                if let Some(group) = group_id {
+                    println!("{}:", color::bold(&group));
+                    for cmd in cmds {
+                        // Build command name with aliases
+                        let mut name_with_aliases = color::green(&cmd.name);
+                        if !cmd.aliases.is_empty() {
+                            let aliases = cmd.aliases.join(", ");
+                            name_with_aliases = format!(
+                                "{} {}",
+                                name_with_aliases,
+                                color::dim(&format!("({aliases})"))
+                            );
+                        }
+
+                        let formatted = format_help_entry(
+                            &format!("  {name_with_aliases}"),
+                            &cmd.short,
+                            left_column_width + 2, // account for the "  " prefix
+                            terminal_width,
+                        );
+                        println!("{formatted}");
+                    }
+                    println!();
+                }
+            }
         }
 
         // Print flags
@@ -643,9 +696,18 @@ impl Command {
             }
         }
 
+        // Print examples if available
+        if !self.examples.is_empty() {
+            println!("{}:", color::bold("Examples"));
+            for example in &self.examples {
+                println!("  {}", color::dim(example));
+            }
+            println!();
+        }
+
         // Print help about help
         println!(
-            "\nUse \"{} {} --help\" for more information about a command.",
+            "Use \"{} {} --help\" for more information about a command.",
             self.name,
             color::yellow("[command]")
         );
@@ -965,6 +1027,63 @@ impl CommandBuilder {
     #[must_use]
     pub fn long(mut self, long: impl Into<String>) -> Self {
         self.command.long = long.into();
+        self
+    }
+
+    /// Adds an example for this command
+    ///
+    /// Examples are shown in the help output to demonstrate command usage.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("deploy")
+    ///     .short("Deploy the application")
+    ///     .example("deploy --env production")
+    ///     .example("deploy --env staging --dry-run")
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn example(mut self, example: impl Into<String>) -> Self {
+        self.command.examples.push(example.into());
+        self
+    }
+
+    /// Sets the group ID for this command
+    ///
+    /// Commands with the same group ID will be displayed together in help output.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let app = CommandBuilder::new("kubectl")
+    ///     .subcommand(
+    ///         CommandBuilder::new("get")
+    ///             .short("Display resources")
+    ///             .group_id("Basic Commands")
+    ///             .build()
+    ///     )
+    ///     .subcommand(
+    ///         CommandBuilder::new("create")
+    ///             .short("Create resources")
+    ///             .group_id("Basic Commands")
+    ///             .build()
+    ///     )
+    ///     .subcommand(
+    ///         CommandBuilder::new("config")
+    ///             .short("Modify kubeconfig files")
+    ///             .group_id("Settings Commands")
+    ///             .build()
+    ///     )
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn group_id(mut self, group_id: impl Into<String>) -> Self {
+        self.command.group_id = Some(group_id.into());
         self
     }
 
