@@ -8,6 +8,7 @@ use crate::completion_format::CompletionFormat;
 use crate::context::Context;
 use crate::error::{Error, Result};
 use crate::flag::{Flag, FlagType, FlagValue};
+use crate::terminal::{format_help_entry, get_terminal_width, wrap_text_to_terminal};
 use std::collections::HashMap;
 
 /// Type alias for the function that executes when a command runs
@@ -457,9 +458,11 @@ impl Command {
     pub fn print_help(&self) {
         use crate::color;
 
-        // Print usage
-        println!("{}", self.long.as_str());
-        println!();
+        // Print description with text wrapping
+        if !self.long.is_empty() {
+            println!("{}", wrap_text_to_terminal(&self.long, None));
+            println!();
+        }
 
         // Print usage line
         print!("{}:\n  {}", color::bold("Usage"), self.name);
@@ -477,8 +480,17 @@ impl Command {
             let mut commands: Vec<_> = self.subcommands.values().collect();
             commands.sort_by_key(|cmd| &cmd.name);
 
+            let terminal_width = get_terminal_width();
+            let left_column_width = 20;
+
             for cmd in commands {
-                println!("  {:<20} {}", color::green(&cmd.name), cmd.short);
+                let formatted = format_help_entry(
+                    &format!("  {}", color::green(&cmd.name)),
+                    &cmd.short,
+                    left_column_width + 2, // account for the "  " prefix
+                    terminal_width
+                );
+                println!("{formatted}");
             }
             println!();
         }
@@ -547,13 +559,24 @@ impl Command {
             })
             .unwrap_or_default();
 
-        println!(
-            "      {}--{:<15}  {}{}",
+        let flag_name_formatted = format!("{}{flag_type}", flag.name);
+        let left_part = format!(
+            "      {}--{}",
             color::cyan(&short),
-            color::cyan(&format!("{}{flag_type}", flag.name)),
-            flag.usage,
-            color::dim(&default)
+            color::cyan(&flag_name_formatted)
         );
+        
+        let description = format!("{}{}", flag.usage, color::dim(&default));
+        let terminal_width = get_terminal_width();
+        let left_column_width = 30; // Adjust based on typical flag length
+        
+        let formatted = format_help_entry(
+            &left_part,
+            &description,
+            left_column_width,
+            terminal_width
+        );
+        println!("{formatted}");
     }
 
     /// Handles shell completion requests

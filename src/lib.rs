@@ -223,6 +223,9 @@ pub mod shell;
 /// Completion format handling
 pub mod completion_format;
 
+/// Terminal utilities for enhanced CLI output
+pub mod terminal;
+
 // Re-export main types for convenience
 pub use command::{Command, CommandBuilder};
 pub use completion::{CompletionFunc, CompletionResult};
