@@ -241,6 +241,18 @@ pub mod suggestion;
 /// ActiveHelp system for contextual hints
 pub mod active_help;
 
+/// Memory-efficient completion items
+pub mod completion_item;
+
+/// Memory-optimized completion results
+pub mod completion_optimized;
+
+/// String interning pool for reducing memory usage
+pub mod string_pool;
+
+/// Memory-optimized flag parsing
+pub mod parse_optimized;
+
 // Re-export main types for convenience
 pub use command::{Command, CommandBuilder};
 pub use completion::{CompletionFunc, CompletionResult};
