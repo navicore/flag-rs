@@ -16,6 +16,9 @@ use std::collections::HashMap;
 /// Type alias for the function that executes when a command runs
 pub type RunFunc = Box<dyn Fn(&mut Context) -> Result<()> + Send + Sync>;
 
+/// Type alias for lifecycle hook functions
+pub type HookFunc = Box<dyn Fn(&mut Context) -> Result<()> + Send + Sync>;
+
 /// Represents a command in the CLI application
 ///
 /// Commands can have:
@@ -56,6 +59,11 @@ pub struct Command {
     arg_validator: Option<ArgValidator>,
     suggestions_enabled: bool,
     suggestion_distance: usize,
+    // Lifecycle hooks
+    persistent_pre_run: Option<HookFunc>,
+    pre_run: Option<HookFunc>,
+    post_run: Option<HookFunc>,
+    persistent_post_run: Option<HookFunc>,
 }
 
 unsafe impl Send for Command {}
@@ -109,6 +117,10 @@ impl Command {
             arg_validator: None,
             suggestions_enabled: true,
             suggestion_distance: DEFAULT_SUGGESTION_DISTANCE,
+            persistent_pre_run: None,
+            pre_run: None,
+            post_run: None,
+            persistent_post_run: None,
         }
     }
 
@@ -249,6 +261,16 @@ impl Command {
     /// This method is useful when you need to provide pre-configured context
     /// or when implementing custom command routing.
     pub fn execute_with_context(&self, ctx: &mut Context) -> Result<()> {
+        // Call the internal method with an empty hook chain
+        self.execute_with_context_and_hooks(ctx, &mut Vec::new())
+    }
+
+    /// Internal method that executes the command while collecting parent hooks
+    fn execute_with_context_and_hooks<'a>(
+        &'a self,
+        ctx: &mut Context,
+        parent_hooks: &mut Vec<(&'a Option<HookFunc>, &'a Option<HookFunc>)>,
+    ) -> Result<()> {
         let args = ctx.args().to_vec();
 
         // Parse flags first, before checking for empty args
@@ -270,8 +292,11 @@ impl Command {
                     ctx.set_flag(name, value);
                 }
 
+                // Add our persistent hooks to the chain for subcommands
+                parent_hooks.push((&self.persistent_pre_run, &self.persistent_post_run));
+
                 ctx.args_mut().remove(0);
-                return subcommand.execute_with_context(ctx);
+                return subcommand.execute_with_context_and_hooks(ctx, parent_hooks);
             }
         }
 
@@ -292,7 +317,7 @@ impl Command {
             if let Some(ref validator) = self.arg_validator {
                 validator.validate(ctx.args())?;
             }
-            run(ctx)
+            self.execute_with_parent_hooks(ctx, run, parent_hooks)
         } else if ctx.args().is_empty() {
             // No args and no run function - show help
             Err(Error::SubcommandRequired(self.name.clone()))
@@ -464,6 +489,80 @@ impl Command {
                 self.parent
                     .and_then(|parent| unsafe { (*parent).find_flag_by_short(short) })
             })
+    }
+
+    /// Executes the command with lifecycle hooks including parent hooks
+    fn execute_with_parent_hooks(
+        &self,
+        ctx: &mut Context,
+        run: &RunFunc,
+        parent_hooks: &[(&Option<HookFunc>, &Option<HookFunc>)],
+    ) -> Result<()> {
+        // Execute parent persistent pre-run hooks (from root to immediate parent)
+        for (pre_hook, _) in parent_hooks {
+            if let Some(ref hook) = pre_hook {
+                hook(ctx)?;
+            }
+        }
+
+        // Execute own persistent pre-run hook if present
+        if let Some(ref hook) = self.persistent_pre_run {
+            hook(ctx)?;
+        }
+
+        // Execute pre-run hook if present
+        if let Some(ref pre_run) = self.pre_run {
+            pre_run(ctx)?;
+        }
+
+        // Execute the main run function
+        let result = run(ctx);
+
+        // Execute post-run hook if present, but preserve the original error
+        let post_run_result = if let Some(ref post_run) = self.post_run {
+            match result {
+                Ok(()) => post_run(ctx),
+                Err(e) => {
+                    // Try to run post-run even if main failed, but return original error
+                    let _ = post_run(ctx);
+                    Err(e)
+                }
+            }
+        } else {
+            result
+        };
+
+        // Execute own persistent post-run hook if present
+        let persistent_result = if let Some(ref hook) = self.persistent_post_run {
+            let result = hook(ctx);
+            match post_run_result {
+                Ok(()) => result,
+                Err(e) => {
+                    // Try to run persistent post-run even if post-run failed
+                    let _ = result;
+                    Err(e)
+                }
+            }
+        } else {
+            post_run_result
+        };
+
+        // Execute parent persistent post-run hooks (from immediate parent to root)
+        let mut final_result = persistent_result;
+        for (_, post_hook) in parent_hooks.iter().rev() {
+            if let Some(ref hook) = post_hook {
+                match final_result {
+                    Ok(()) => final_result = hook(ctx),
+                    Err(e) => {
+                        // Try to run parent post-run even if child failed
+                        let _ = hook(ctx);
+                        final_result = Err(e);
+                    }
+                }
+            }
+        }
+
+        final_result
     }
 
     /// Prints the help message for this command
@@ -969,6 +1068,118 @@ impl CommandBuilder {
     #[must_use]
     pub fn args(mut self, validator: ArgValidator) -> Self {
         self.command.arg_validator = Some(validator);
+        self
+    }
+
+    /// Sets the persistent pre-run hook for this command
+    ///
+    /// This hook runs before the command and all its subcommands.
+    /// It's inherited by all subcommands and runs in parent-to-child order.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("app")
+    ///     .persistent_pre_run(|ctx| {
+    ///         println!("Setting up logging...");
+    ///         Ok(())
+    ///     })
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn persistent_pre_run<F>(mut self, f: F) -> Self
+    where
+        F: Fn(&mut Context) -> Result<()> + Send + Sync + 'static,
+    {
+        self.command.persistent_pre_run = Some(Box::new(f));
+        self
+    }
+
+    /// Sets the pre-run hook for this command
+    ///
+    /// This hook runs only for this specific command, after any persistent
+    /// pre-run hooks but before the main run function.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("deploy")
+    ///     .pre_run(|ctx| {
+    ///         println!("Validating deployment configuration...");
+    ///         Ok(())
+    ///     })
+    ///     .run(|ctx| {
+    ///         println!("Deploying application...");
+    ///         Ok(())
+    ///     })
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn pre_run<F>(mut self, f: F) -> Self
+    where
+        F: Fn(&mut Context) -> Result<()> + Send + Sync + 'static,
+    {
+        self.command.pre_run = Some(Box::new(f));
+        self
+    }
+
+    /// Sets the post-run hook for this command
+    ///
+    /// This hook runs only for this specific command, after the main run
+    /// function but before any persistent post-run hooks.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("test")
+    ///     .run(|ctx| {
+    ///         println!("Running tests...");
+    ///         Ok(())
+    ///     })
+    ///     .post_run(|ctx| {
+    ///         println!("Generating test report...");
+    ///         Ok(())
+    ///     })
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn post_run<F>(mut self, f: F) -> Self
+    where
+        F: Fn(&mut Context) -> Result<()> + Send + Sync + 'static,
+    {
+        self.command.post_run = Some(Box::new(f));
+        self
+    }
+
+    /// Sets the persistent post-run hook for this command
+    ///
+    /// This hook runs after the command and all its subcommands.
+    /// It's inherited by all subcommands and runs in child-to-parent order.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("app")
+    ///     .persistent_post_run(|ctx| {
+    ///         println!("Cleaning up resources...");
+    ///         Ok(())
+    ///     })
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn persistent_post_run<F>(mut self, f: F) -> Self
+    where
+        F: Fn(&mut Context) -> Result<()> + Send + Sync + 'static,
+    {
+        self.command.persistent_post_run = Some(Box::new(f));
         self
     }
 
