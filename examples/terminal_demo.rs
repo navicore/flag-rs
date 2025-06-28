@@ -1,13 +1,13 @@
 //! Simple demo to manually verify terminal features
-//! 
+//!
 //! Run with different terminal widths:
 //! ```bash
 //! # Default width
 //! cargo run --example terminal_demo
-//! 
+//!
 //! # Narrow terminal
 //! COLUMNS=50 cargo run --example terminal_demo
-//! 
+//!
 //! # Wide terminal  
 //! COLUMNS=100 cargo run --example terminal_demo
 //! ```

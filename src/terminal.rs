@@ -56,12 +56,12 @@ fn detect_terminal_width_platform() -> Option<usize> {
     {
         detect_terminal_width_unix()
     }
-    
+
     #[cfg(windows)]
     {
         detect_terminal_width_windows()
     }
-    
+
     #[cfg(not(any(unix, windows)))]
     {
         None
@@ -71,12 +71,12 @@ fn detect_terminal_width_platform() -> Option<usize> {
 #[cfg(unix)]
 fn detect_terminal_width_unix() -> Option<usize> {
     use std::io::IsTerminal;
-    
+
     // Only try to detect width if we're actually connected to a terminal
     if !std::io::stdout().is_terminal() {
         return None;
     }
-    
+
     // Try to get terminal size using TIOCGWINSZ ioctl
     // This is a simplified implementation - a full implementation would use libc
     // For now, we'll rely on COLUMNS env var and fall back to default
@@ -122,27 +122,24 @@ pub fn wrap_text(text: &str, width: usize, indent: Option<usize>) -> String {
         return text.to_string();
     }
 
-    let mut result = String::new();
+    let mut result = Vec::new();
     let indent_str = " ".repeat(indent.unwrap_or(0));
-    let mut first_line = true;
 
     for paragraph in text.split('\n') {
-        if !first_line {
-            result.push('\n');
-        }
-        first_line = false;
-
         if paragraph.trim().is_empty() {
+            // Preserve empty lines
+            result.push(String::new());
             continue;
         }
 
+        let mut lines = Vec::new();
         let mut current_line = String::new();
         let words: Vec<&str> = paragraph.split_whitespace().collect();
-        
+
         for word in &words {
-            let space_needed = if current_line.is_empty() { 0 } else { 1 };
+            let space_needed = usize::from(!current_line.is_empty());
             let line_with_word_len = current_line.len() + space_needed + word.len();
-            
+
             if line_with_word_len <= width || current_line.is_empty() {
                 // Word fits on current line
                 if !current_line.is_empty() {
@@ -150,26 +147,22 @@ pub fn wrap_text(text: &str, width: usize, indent: Option<usize>) -> String {
                 }
                 current_line.push_str(word);
             } else {
-                // Word doesn't fit, start new line
-                if !result.is_empty() {
-                    result.push('\n');
-                }
-                result.push_str(&current_line);
-                
-                current_line = format!("{}{}", indent_str, word);
+                // Word doesn't fit, save current line and start new one
+                lines.push(current_line);
+                current_line = format!("{indent_str}{word}");
             }
         }
-        
-        // Add the last line
+
+        // Add the last line if not empty
         if !current_line.is_empty() {
-            if !result.is_empty() {
-                result.push('\n');
-            }
-            result.push_str(&current_line);
+            lines.push(current_line);
         }
+
+        // Add all lines from this paragraph
+        result.extend(lines);
     }
 
-    result
+    result.join("\n")
 }
 
 /// Wraps text to fit the current terminal width
@@ -214,7 +207,7 @@ pub fn wrap_text_to_terminal(text: &str, indent: Option<usize>) -> String {
 /// use flag_rs::terminal::format_help_entry;
 ///
 /// let formatted = format_help_entry(
-///     "  -v, --verbose", 
+///     "  -v, --verbose",
 ///     "Enable verbose output with detailed logging information",
 ///     20,
 ///     80
@@ -232,19 +225,19 @@ pub fn format_help_entry(
     }
 
     let right_width = total_width.saturating_sub(left_width + 2); // 2 for spacing
-    
+
     if left_column.len() <= left_width {
         // Left column fits, format normally
         let padding = " ".repeat(left_width - left_column.len());
         let wrapped_right = wrap_text(right_column, right_width, Some(left_width + 2));
-        
-        format!("{}{}  {}", left_column, padding, wrapped_right)
+
+        format!("{left_column}{padding}  {wrapped_right}")
     } else {
         // Left column is too long, put description on next line
         let indent = " ".repeat(left_width + 2);
         let wrapped_right = wrap_text(right_column, right_width, Some(left_width + 2));
-        
-        format!("{}\n{}{}", left_column, indent, wrapped_right)
+
+        format!("{left_column}\n{indent}{wrapped_right}")
     }
 }
 
@@ -278,7 +271,7 @@ mod tests {
     fn test_wrap_text_long_line() {
         let text = "This is a very long line that needs to be wrapped";
         let wrapped = wrap_text(text, 20, None);
-        
+
         // Should wrap at word boundaries
         assert!(wrapped.contains('\n'));
         for line in wrapped.lines() {
@@ -290,13 +283,13 @@ mod tests {
     fn test_wrap_text_with_indent() {
         let text = "This is a very long line that needs to be wrapped with indentation";
         let wrapped = wrap_text(text, 20, Some(4));
-        
+
         let lines: Vec<&str> = wrapped.lines().collect();
         assert!(lines.len() > 1);
-        
+
         // First line should not be indented
         assert!(!lines[0].starts_with("    "));
-        
+
         // Subsequent lines should be indented
         for line in &lines[1..] {
             assert!(line.starts_with("    "));
@@ -312,12 +305,7 @@ mod tests {
 
     #[test]
     fn test_format_help_entry_long_left() {
-        let result = format_help_entry(
-            "  --very-long-flag-name",
-            "Description", 
-            15, 
-            60
-        );
+        let result = format_help_entry("  --very-long-flag-name", "Description", 15, 60);
         // Should put description on next line when left column is too long
         assert!(result.contains('\n'));
     }

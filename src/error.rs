@@ -14,8 +14,12 @@ pub enum Error {
     /// The specified command was not found
     ///
     /// This error occurs when a user tries to run a subcommand that doesn't exist.
-    /// Contains the name of the unknown command.
-    CommandNotFound(String),
+    CommandNotFound {
+        /// The name of the unknown command
+        command: String,
+        /// Suggested similar commands
+        suggestions: Vec<String>,
+    },
 
     /// A command requires a subcommand but none was provided
     ///
@@ -40,6 +44,18 @@ pub enum Error {
     /// This error occurs when command arguments don't meet requirements.
     /// Contains a description of the error.
     ArgumentParsing(String),
+
+    /// Argument validation failed
+    ///
+    /// This error occurs when arguments don't meet validation constraints.
+    ArgumentValidation {
+        /// Description of the validation failure
+        message: String,
+        /// Expected argument pattern
+        expected: String,
+        /// Number of arguments received
+        received: usize,
+    },
 
     /// A validation error occurred
     ///
@@ -67,11 +83,34 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::CommandNotFound(cmd) => write!(f, "Unknown command: {cmd}"),
+            Self::CommandNotFound {
+                command,
+                suggestions,
+            } => {
+                if suggestions.is_empty() {
+                    write!(f, "Unknown command: {command}")
+                } else if suggestions.len() == 1 {
+                    write!(
+                        f,
+                        "Unknown command: {command}\n\nDid you mean this?\n    {}",
+                        suggestions[0]
+                    )
+                } else {
+                    write!(
+                        f,
+                        "Unknown command: {command}\n\nDid you mean one of these?"
+                    )?;
+                    for suggestion in suggestions {
+                        write!(f, "\n    {suggestion}")?;
+                    }
+                    Ok(())
+                }
+            }
             Self::SubcommandRequired(cmd) => write!(f, "'{cmd}' requires a subcommand"),
             Self::NoRunFunction(cmd) => write!(f, "Command '{cmd}' is not runnable"),
             Self::FlagParsing(msg) => write!(f, "Invalid flag: {msg}"),
             Self::ArgumentParsing(msg) => write!(f, "Invalid argument: {msg}"),
+            Self::ArgumentValidation { message, .. } => write!(f, "Error: {message}"),
             Self::Validation(msg) => write!(f, "Validation error: {msg}"),
             Self::Completion(msg) => write!(f, "Completion error: {msg}"),
             Self::Io(err) => write!(f, "IO error: {err}"),
@@ -120,7 +159,11 @@ mod tests {
     #[test]
     fn test_error_display() {
         assert_eq!(
-            Error::CommandNotFound("test".to_string()).to_string(),
+            Error::CommandNotFound {
+                command: "test".to_string(),
+                suggestions: vec![],
+            }
+            .to_string(),
             "Unknown command: test"
         );
         assert_eq!(
@@ -139,7 +182,33 @@ mod tests {
         let error = Error::Io(io_error);
         assert!(error.source().is_some());
 
-        let error = Error::CommandNotFound("test".to_string());
+        let error = Error::CommandNotFound {
+            command: "test".to_string(),
+            suggestions: vec![],
+        };
         assert!(error.source().is_none());
+    }
+
+    #[test]
+    fn test_error_with_suggestions() {
+        // Single suggestion
+        let error = Error::CommandNotFound {
+            command: "strt".to_string(),
+            suggestions: vec!["start".to_string()],
+        };
+        assert_eq!(
+            error.to_string(),
+            "Unknown command: strt\n\nDid you mean this?\n    start"
+        );
+
+        // Multiple suggestions
+        let error = Error::CommandNotFound {
+            command: "lst".to_string(),
+            suggestions: vec!["list".to_string(), "last".to_string()],
+        };
+        assert_eq!(
+            error.to_string(),
+            "Unknown command: lst\n\nDid you mean one of these?\n    list\n    last"
+        );
     }
 }

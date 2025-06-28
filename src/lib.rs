@@ -226,6 +226,12 @@ pub mod completion_format;
 /// Terminal utilities for enhanced CLI output
 pub mod terminal;
 
+/// Argument validation for commands
+pub mod validator;
+
+/// Command and flag suggestion support
+pub mod suggestion;
+
 // Re-export main types for convenience
 pub use command::{Command, CommandBuilder};
 pub use completion::{CompletionFunc, CompletionResult};
@@ -233,3 +239,4 @@ pub use context::Context;
 pub use error::{Error, Result};
 pub use flag::{Flag, FlagType, FlagValue};
 pub use shell::Shell;
+pub use validator::ArgValidator;

@@ -8,7 +8,9 @@ use crate::completion_format::CompletionFormat;
 use crate::context::Context;
 use crate::error::{Error, Result};
 use crate::flag::{Flag, FlagType, FlagValue};
+use crate::suggestion::{find_suggestions, DEFAULT_SUGGESTION_DISTANCE};
 use crate::terminal::{format_help_entry, get_terminal_width, wrap_text_to_terminal};
+use crate::validator::ArgValidator;
 use std::collections::HashMap;
 
 /// Type alias for the function that executes when a command runs
@@ -51,6 +53,9 @@ pub struct Command {
     parent: Option<*mut Self>,
     arg_completions: Option<CompletionFunc>,
     flag_completions: HashMap<String, CompletionFunc>,
+    arg_validator: Option<ArgValidator>,
+    suggestions_enabled: bool,
+    suggestion_distance: usize,
 }
 
 unsafe impl Send for Command {}
@@ -101,6 +106,9 @@ impl Command {
             parent: None,
             arg_completions: None,
             flag_completions: HashMap::new(),
+            arg_validator: None,
+            suggestions_enabled: true,
+            suggestion_distance: DEFAULT_SUGGESTION_DISTANCE,
         }
     }
 
@@ -280,14 +288,26 @@ impl Command {
 
         // No subcommand found, try to run this command's function
         if let Some(ref run) = self.run {
+            // Validate arguments before running
+            if let Some(ref validator) = self.arg_validator {
+                validator.validate(ctx.args())?;
+            }
             run(ctx)
         } else if ctx.args().is_empty() {
             // No args and no run function - show help
             Err(Error::SubcommandRequired(self.name.clone()))
         } else {
-            Err(Error::CommandNotFound(
-                ctx.args().first().unwrap_or(&String::new()).clone(),
-            ))
+            let unknown_command = ctx.args().first().unwrap_or(&String::new()).clone();
+            let suggestions = if self.suggestions_enabled {
+                self.find_command_suggestions(&unknown_command)
+            } else {
+                Vec::new()
+            };
+
+            Err(Error::CommandNotFound {
+                command: unknown_command,
+                suggestions,
+            })
         }
     }
 
@@ -488,7 +508,7 @@ impl Command {
                     &format!("  {}", color::green(&cmd.name)),
                     &cmd.short,
                     left_column_width + 2, // account for the "  " prefix
-                    terminal_width
+                    terminal_width,
                 );
                 println!("{formatted}");
             }
@@ -565,18 +585,20 @@ impl Command {
             color::cyan(&short),
             color::cyan(&flag_name_formatted)
         );
-        
+
         let description = format!("{}{}", flag.usage, color::dim(&default));
         let terminal_width = get_terminal_width();
         let left_column_width = 30; // Adjust based on typical flag length
-        
-        let formatted = format_help_entry(
-            &left_part,
-            &description,
-            left_column_width,
-            terminal_width
-        );
+
+        let formatted =
+            format_help_entry(&left_part, &description, left_column_width, terminal_width);
         println!("{formatted}");
+    }
+
+    /// Finds command suggestions based on similarity
+    fn find_command_suggestions(&self, input: &str) -> Vec<String> {
+        let candidates: Vec<String> = self.subcommands.keys().cloned().collect();
+        find_suggestions(input, &candidates, self.suggestion_distance)
     }
 
     /// Handles shell completion requests
@@ -922,6 +944,32 @@ impl CommandBuilder {
         self
     }
 
+    /// Sets the argument validator for this command
+    ///
+    /// The validator will be called before the run function to ensure
+    /// arguments meet the specified constraints.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::{CommandBuilder, ArgValidator};
+    ///
+    /// let cmd = CommandBuilder::new("delete")
+    ///     .args(ArgValidator::MinimumArgs(1))
+    ///     .run(|ctx| {
+    ///         for file in ctx.args() {
+    ///             println!("Deleting: {}", file);
+    ///         }
+    ///         Ok(())
+    ///     })
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn args(mut self, validator: ArgValidator) -> Self {
+        self.command.arg_validator = Some(validator);
+        self
+    }
+
     /// Sets the argument completion function
     ///
     /// This function is called when the user presses TAB to complete arguments.
@@ -983,6 +1031,46 @@ impl CommandBuilder {
         F: Fn(&Context, &str) -> Result<CompletionResult> + Send + Sync + 'static,
     {
         self.command.set_flag_completion(flag_name, f);
+        self
+    }
+
+    /// Enables or disables command suggestions
+    ///
+    /// When enabled, the framework will suggest similar commands when
+    /// a user types an unknown command.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("myapp")
+    ///     .suggestions(true)  // Enable suggestions (default)
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn suggestions(mut self, enabled: bool) -> Self {
+        self.command.suggestions_enabled = enabled;
+        self
+    }
+
+    /// Sets the maximum Levenshtein distance for suggestions
+    ///
+    /// Commands within this distance will be suggested as alternatives.
+    /// Default is 2.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("myapp")
+    ///     .suggestion_distance(3)  // Allow more distant suggestions
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn suggestion_distance(mut self, distance: usize) -> Self {
+        self.command.suggestion_distance = distance;
         self
     }
 
@@ -1153,12 +1241,12 @@ mod tests {
         // Unknown subcommand
         let result = cmd.execute(vec!["unknown".to_string()]);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), Error::CommandNotFound(_)));
+        assert!(matches!(result.unwrap_err(), Error::CommandNotFound { .. }));
 
         // Unknown flag (now treated as argument, so it becomes unknown command)
         let result = cmd.execute(vec!["--unknown".to_string()]);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), Error::CommandNotFound(_)));
+        assert!(matches!(result.unwrap_err(), Error::CommandNotFound { .. }));
     }
 
     #[test]
