@@ -36,8 +36,15 @@ pub enum Error {
     /// An error occurred while parsing flag values
     ///
     /// This error occurs when a flag value cannot be parsed as the expected type
-    /// (e.g., "abc" for an integer flag). Contains a description of the error.
-    FlagParsing(String),
+    /// (e.g., "abc" for an integer flag).
+    FlagParsing {
+        /// Description of the error
+        message: String,
+        /// The flag that caused the error
+        flag: Option<String>,
+        /// Suggested valid values or format
+        suggestions: Vec<String>,
+    },
 
     /// An error occurred while parsing command arguments
     ///
@@ -129,8 +136,32 @@ impl fmt::Display for Error {
                     color::bold(cmd)
                 )
             }
-            Self::FlagParsing(msg) => {
-                write!(f, "{}: invalid flag - {}", color::red("Error"), msg)
+            Self::FlagParsing {
+                message,
+                flag,
+                suggestions,
+            } => {
+                write!(f, "{}: {}", color::red("Error"), message)?;
+                if let Some(flag_name) = flag {
+                    write!(f, " for flag '{}'", color::bold(flag_name))?;
+                }
+
+                if !suggestions.is_empty() {
+                    write!(f, "\n\n")?;
+                    if suggestions.len() == 1 {
+                        write!(f, "{}: {}", color::yellow("Expected"), suggestions[0])?;
+                    } else {
+                        writeln!(f, "{} one of:", color::yellow("Expected"))?;
+                        for suggestion in suggestions {
+                            writeln!(f, "    {}", color::green(suggestion))?;
+                        }
+                        // Remove trailing newline
+                        if f.width().is_none() {
+                            // Handled by caller
+                        }
+                    }
+                }
+                Ok(())
             }
             Self::ArgumentParsing(msg) => {
                 write!(f, "{}: invalid argument - {}", color::red("Error"), msg)
@@ -198,6 +229,30 @@ impl From<std::io::Error> for Error {
 /// ```
 pub type Result<T> = std::result::Result<T, Error>;
 
+impl Error {
+    /// Create a simple flag parsing error
+    pub fn flag_parsing(message: impl Into<String>) -> Self {
+        Self::FlagParsing {
+            message: message.into(),
+            flag: None,
+            suggestions: vec![],
+        }
+    }
+
+    /// Create a flag parsing error with suggestions
+    pub fn flag_parsing_with_suggestions(
+        message: impl Into<String>,
+        flag: impl Into<String>,
+        suggestions: Vec<String>,
+    ) -> Self {
+        Self::FlagParsing {
+            message: message.into(),
+            flag: Some(flag.into()),
+            suggestions,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,8 +276,13 @@ mod tests {
             "Error: 'kubectl' requires a subcommand\n\nHint: use 'kubectl --help' for available subcommands"
         );
         assert_eq!(
-            Error::FlagParsing("--invalid".to_string()).to_string(),
-            "Error: invalid flag - --invalid"
+            Error::FlagParsing {
+                message: "invalid flag".to_string(),
+                flag: Some("invalid".to_string()),
+                suggestions: vec![],
+            }
+            .to_string(),
+            "Error: invalid flag for flag 'invalid'"
         );
 
         std::env::remove_var("NO_COLOR");

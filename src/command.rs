@@ -7,7 +7,7 @@ use crate::completion::{CompletionFunc, CompletionResult};
 use crate::completion_format::CompletionFormat;
 use crate::context::Context;
 use crate::error::{Error, Result};
-use crate::flag::{Flag, FlagType, FlagValue};
+use crate::flag::{Flag, FlagConstraint, FlagType, FlagValue};
 use crate::suggestion::{find_suggestions, DEFAULT_SUGGESTION_DISTANCE};
 use crate::terminal::{format_help_entry, get_terminal_width, wrap_text_to_terminal};
 use crate::validator::ArgValidator;
@@ -518,9 +518,11 @@ impl Command {
         // Check required flags
         for (flag_name, flag) in &self.flags {
             if flag.required && !provided_flag_names.contains(flag_name) {
-                return Err(Error::FlagParsing(format!(
-                    "Required flag '--{flag_name}' not provided"
-                )));
+                return Err(Error::flag_parsing_with_suggestions(
+                    format!("Required flag '--{flag_name}' not provided"),
+                    flag_name.to_string(),
+                    vec![format!("add --{flag_name} <value>")],
+                ));
             }
         }
 
@@ -530,9 +532,11 @@ impl Command {
         //     unsafe {
         //         for (flag_name, flag) in &(*parent).flags {
         //             if flag.required && !provided_flag_names.contains(flag_name) {
-        //                 return Err(Error::FlagParsing(format!(
-        //                     "Required flag '--{flag_name}' not provided"
-        //                 )));
+        //                 return Err(Error::flag_parsing_with_suggestions(
+        //                     format!("Required flag '--{flag_name}' not provided"),
+        //                     flag_name.to_string(),
+        //                     vec![format!("add --{flag_name} <value>")],
+        //                 ));
         //             }
         //         }
         //     }
@@ -643,12 +647,16 @@ impl Command {
     /// - Local and global flags
     ///
     /// Help text is automatically colored when outputting to a TTY.
+    #[allow(clippy::cognitive_complexity)]
     pub fn print_help(&self) {
         use crate::color;
 
         // Print description with text wrapping
         if !self.long.is_empty() {
             println!("{}", wrap_text_to_terminal(&self.long, None));
+            println!();
+        } else if !self.short.is_empty() {
+            println!("{}", wrap_text_to_terminal(&self.short, None));
             println!();
         }
 
@@ -659,6 +667,23 @@ impl Command {
         }
         if !self.subcommands.is_empty() {
             print!(" {}", color::yellow("[command]"));
+        }
+
+        // Show if command requires args
+        if let Some(validator) = &self.arg_validator {
+            match validator {
+                ArgValidator::MinimumArgs(n) if n > &0 => {
+                    print!(" {}", color::yellow("<args>"));
+                }
+                ArgValidator::ExactArgs(n) if n > &0 => {
+                    let arg_str = if n == &1 { "<arg>" } else { "<args>" };
+                    print!(" {}", color::yellow(arg_str));
+                }
+                ArgValidator::RangeArgs(min, _) if min > &0 => {
+                    print!(" {}", color::yellow("<args>"));
+                }
+                _ => {}
+            }
         }
         println!("\n");
 
@@ -734,14 +759,30 @@ impl Command {
 
         // Print flags
         if !self.flags.is_empty() || self.parent.is_some() {
-            println!("{}:", color::bold("Flags"));
+            // Separate required and optional flags
+            let mut required_flags: Vec<_> = self.flags.values().filter(|f| f.required).collect();
+            let mut optional_flags: Vec<_> = self.flags.values().filter(|f| !f.required).collect();
 
-            // Collect and sort local flags
-            let mut local_flags: Vec<_> = self.flags.values().collect();
-            local_flags.sort_by_key(|f| &f.name);
+            required_flags.sort_by_key(|f| &f.name);
+            optional_flags.sort_by_key(|f| &f.name);
 
-            for flag in local_flags {
-                Self::print_flag(flag);
+            // Print required flags first
+            if !required_flags.is_empty() {
+                println!("{} {}:", color::bold("Required Flags"), color::red("*"));
+                for flag in required_flags {
+                    Self::print_flag(flag);
+                }
+                if !optional_flags.is_empty() {
+                    println!();
+                }
+            }
+
+            // Print optional flags
+            if !optional_flags.is_empty() {
+                println!("{}:", color::bold("Flags"));
+                for flag in optional_flags {
+                    Self::print_flag(flag);
+                }
             }
         }
 
@@ -780,10 +821,41 @@ impl Command {
 
     fn print_flag(flag: &Flag) {
         use crate::color;
+        use std::fmt::Write;
 
         let short = flag
             .short
             .map_or_else(|| "    ".to_string(), |s| format!("-{s}, "));
+
+        // Build constraint indicators
+        let mut constraint_info = String::new();
+        for constraint in &flag.constraints {
+            match constraint {
+                FlagConstraint::RequiredIf(other) => {
+                    let _ = write!(
+                        &mut constraint_info,
+                        " {}",
+                        color::yellow(&format!("[required if --{other}]"))
+                    );
+                }
+                FlagConstraint::ConflictsWith(others) => {
+                    let conflicts = others.join(", --");
+                    let _ = write!(
+                        &mut constraint_info,
+                        " {}",
+                        color::yellow(&format!("[conflicts with --{conflicts}]"))
+                    );
+                }
+                FlagConstraint::Requires(others) => {
+                    let requires = others.join(", --");
+                    let _ = write!(
+                        &mut constraint_info,
+                        " {}",
+                        color::yellow(&format!("[requires --{requires}]"))
+                    );
+                }
+            }
+        }
 
         // Handle special formatting for Choice and Range types
         match &flag.value_type {
@@ -805,7 +877,8 @@ impl Command {
                     color::cyan(&flag_name_formatted)
                 );
 
-                let description = format!("{}{}", flag.usage, color::dim(&default));
+                let description =
+                    format!("{}{}{}", flag.usage, color::dim(&default), constraint_info);
                 let terminal_width = get_terminal_width();
                 let left_column_width = 30;
 
@@ -831,7 +904,8 @@ impl Command {
                     color::cyan(&flag_name_formatted)
                 );
 
-                let description = format!("{}{}", flag.usage, color::dim(&default));
+                let description =
+                    format!("{}{}{}", flag.usage, color::dim(&default), constraint_info);
                 let terminal_width = get_terminal_width();
                 let left_column_width = 30;
 
@@ -873,7 +947,7 @@ impl Command {
             color::cyan(&flag_name_formatted)
         );
 
-        let description = format!("{}{}", flag.usage, color::dim(&default));
+        let description = format!("{}{}{}", flag.usage, color::dim(&default), constraint_info);
         let terminal_width = get_terminal_width();
         let left_column_width = 30; // Adjust based on typical flag length
 
