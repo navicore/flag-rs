@@ -6,6 +6,22 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+#### Phase 4 - Enhanced Help & UX
+- **Enhanced Error Messages**:
+  - `FlagParsing` error now includes flag name and suggestions
+  - Better error messages for all flag type validations
+  - Helpful suggestions for boolean, choice, range, file, and directory errors
+  - Created `enhanced_errors_demo.rs` example
+- **Better Help Formatting**:
+  - Separate sections for required and optional flags
+  - Display flag constraints inline (RequiredIf, ConflictsWith, Requires)
+  - Show argument requirements in usage line
+  - Enhanced visual hierarchy with better spacing
+  - Created `help_formatting_demo.rs` example
+- **Command Grouping Support**:
+  - Already implemented - commands can be grouped with `group_id`
+  - Groups displayed in help output with visual separation
+
 #### Phase 5 - Advanced Flag Features
 - Added new flag types:
   - `StringArray` - Array of string values

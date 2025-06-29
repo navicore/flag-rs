@@ -64,7 +64,7 @@ impl FlagValue {
     pub fn as_string(&self) -> Result<&String> {
         match self {
             Self::String(s) => Ok(s),
-            _ => Err(Error::FlagParsing("Flag is not a string".to_string())),
+            _ => Err(Error::flag_parsing("Flag value is not a string")),
         }
     }
 
@@ -76,7 +76,7 @@ impl FlagValue {
     pub fn as_bool(&self) -> Result<bool> {
         match self {
             Self::Bool(b) => Ok(*b),
-            _ => Err(Error::FlagParsing("Flag is not a bool".to_string())),
+            _ => Err(Error::flag_parsing("Flag value is not a boolean")),
         }
     }
 
@@ -88,7 +88,7 @@ impl FlagValue {
     pub fn as_int(&self) -> Result<i64> {
         match self {
             Self::Int(i) => Ok(*i),
-            _ => Err(Error::FlagParsing("Flag is not an integer".to_string())),
+            _ => Err(Error::flag_parsing("Flag value is not an integer")),
         }
     }
 
@@ -100,7 +100,7 @@ impl FlagValue {
     pub fn as_float(&self) -> Result<f64> {
         match self {
             Self::Float(f) => Ok(*f),
-            _ => Err(Error::FlagParsing("Flag is not a float".to_string())),
+            _ => Err(Error::flag_parsing("Flag value is not a float")),
         }
     }
 
@@ -112,7 +112,7 @@ impl FlagValue {
     pub fn as_string_slice(&self) -> Result<&Vec<String>> {
         match self {
             Self::StringSlice(v) => Ok(v),
-            _ => Err(Error::FlagParsing("Flag is not a string slice".to_string())),
+            _ => Err(Error::flag_parsing("Flag value is not a string slice")),
         }
     }
 }
@@ -357,18 +357,30 @@ impl Flag {
             FlagType::Bool => match input.to_lowercase().as_str() {
                 "true" | "t" | "1" | "yes" | "y" => Ok(FlagValue::Bool(true)),
                 "false" | "f" | "0" | "no" | "n" => Ok(FlagValue::Bool(false)),
-                _ => Err(Error::FlagParsing(format!(
-                    "Invalid boolean value: {input}"
-                ))),
+                _ => Err(Error::flag_parsing_with_suggestions(
+                    format!("Invalid boolean value: '{input}'"),
+                    self.name.clone(),
+                    vec![
+                        "true, false".to_string(),
+                        "yes, no".to_string(),
+                        "1, 0".to_string(),
+                    ],
+                )),
             },
-            FlagType::Int => input
-                .parse::<i64>()
-                .map(FlagValue::Int)
-                .map_err(|_| Error::FlagParsing(format!("Invalid integer value: {input}"))),
-            FlagType::Float => input
-                .parse::<f64>()
-                .map(FlagValue::Float)
-                .map_err(|_| Error::FlagParsing(format!("Invalid float value: {input}"))),
+            FlagType::Int => input.parse::<i64>().map(FlagValue::Int).map_err(|_| {
+                Error::flag_parsing_with_suggestions(
+                    format!("Invalid integer value: '{input}'"),
+                    self.name.clone(),
+                    vec!["a whole number (e.g., 42, -10, 0)".to_string()],
+                )
+            }),
+            FlagType::Float => input.parse::<f64>().map(FlagValue::Float).map_err(|_| {
+                Error::flag_parsing_with_suggestions(
+                    format!("Invalid float value: '{input}'"),
+                    self.name.clone(),
+                    vec!["a decimal number (e.g., 3.14, -0.5, 1e10)".to_string()],
+                )
+            }),
             FlagType::StringSlice | FlagType::StringArray => {
                 Ok(FlagValue::StringSlice(vec![input.to_string()]))
             }
@@ -376,23 +388,29 @@ impl Flag {
                 if choices.contains(&input.to_string()) {
                     Ok(FlagValue::String(input.to_string()))
                 } else {
-                    Err(Error::FlagParsing(format!(
-                        "Invalid choice: '{}'. Must be one of: {}",
-                        input,
-                        choices.join(", ")
-                    )))
+                    Err(Error::flag_parsing_with_suggestions(
+                        format!("Invalid choice: '{input}'"),
+                        self.name.clone(),
+                        choices.clone(),
+                    ))
                 }
             }
             FlagType::Range(min, max) => {
-                let value = input
-                    .parse::<i64>()
-                    .map_err(|_| Error::FlagParsing(format!("Invalid integer value: {input}")))?;
+                let value = input.parse::<i64>().map_err(|_| {
+                    Error::flag_parsing_with_suggestions(
+                        format!("Invalid integer value: '{input}'"),
+                        self.name.clone(),
+                        vec![format!("a number between {min} and {max}")],
+                    )
+                })?;
                 if value >= *min && value <= *max {
                     Ok(FlagValue::Int(value))
                 } else {
-                    Err(Error::FlagParsing(format!(
-                        "Value {value} is out of range [{min}, {max}]"
-                    )))
+                    Err(Error::flag_parsing_with_suggestions(
+                        format!("Value {value} is out of range"),
+                        self.name.clone(),
+                        vec![format!("a number between {min} and {max} (inclusive)")],
+                    ))
                 }
             }
             FlagType::File => {
@@ -400,10 +418,18 @@ impl Flag {
                 let path = Path::new(input);
                 if path.exists() && path.is_file() {
                     Ok(FlagValue::String(input.to_string()))
+                } else if !path.exists() {
+                    Err(Error::flag_parsing_with_suggestions(
+                        format!("File not found: '{input}'"),
+                        self.name.clone(),
+                        vec!["path to an existing file".to_string()],
+                    ))
                 } else {
-                    Err(Error::FlagParsing(format!(
-                        "File not found or not a regular file: {input}"
-                    )))
+                    Err(Error::flag_parsing_with_suggestions(
+                        format!("Path exists but is not a file: '{input}'"),
+                        self.name.clone(),
+                        vec!["path to a regular file (not a directory)".to_string()],
+                    ))
                 }
             }
             FlagType::Directory => {
@@ -411,10 +437,18 @@ impl Flag {
                 let path = Path::new(input);
                 if path.exists() && path.is_dir() {
                     Ok(FlagValue::String(input.to_string()))
+                } else if !path.exists() {
+                    Err(Error::flag_parsing_with_suggestions(
+                        format!("Directory not found: '{input}'"),
+                        self.name.clone(),
+                        vec!["path to an existing directory".to_string()],
+                    ))
                 } else {
-                    Err(Error::FlagParsing(format!(
-                        "Directory not found or not a directory: {input}"
-                    )))
+                    Err(Error::flag_parsing_with_suggestions(
+                        format!("Path exists but is not a directory: '{input}'"),
+                        self.name.clone(),
+                        vec!["path to a directory (not a file)".to_string()],
+                    ))
                 }
             }
         }
@@ -443,18 +477,26 @@ impl Flag {
             match constraint {
                 FlagConstraint::RequiredIf(other_flag) => {
                     if provided_flags.contains(other_flag) && !provided_flags.contains(flag_name) {
-                        return Err(Error::FlagParsing(format!(
-                            "Flag '--{flag_name}' is required when '--{other_flag}' is set"
-                        )));
+                        return Err(Error::flag_parsing_with_suggestions(
+                            format!(
+                                "Flag '--{flag_name}' is required when '--{other_flag}' is set"
+                            ),
+                            flag_name.to_string(),
+                            vec![format!("add --{flag_name} <value>")],
+                        ));
                     }
                 }
                 FlagConstraint::ConflictsWith(conflicting_flags) => {
                     if provided_flags.contains(flag_name) {
                         for conflict in conflicting_flags {
                             if provided_flags.contains(conflict) {
-                                return Err(Error::FlagParsing(format!(
-                                    "Flag '--{flag_name}' conflicts with '--{conflict}'"
-                                )));
+                                return Err(Error::flag_parsing_with_suggestions(
+                                    format!("Flag '--{flag_name}' conflicts with '--{conflict}'"),
+                                    flag_name.to_string(),
+                                    vec![format!(
+                                        "use either --{flag_name} or --{conflict}, not both"
+                                    )],
+                                ));
                             }
                         }
                     }
@@ -463,9 +505,13 @@ impl Flag {
                     if provided_flags.contains(flag_name) {
                         for required in required_flags {
                             if !provided_flags.contains(required) {
-                                return Err(Error::FlagParsing(format!(
-                                    "Flag '--{flag_name}' requires '--{required}' to be set"
-                                )));
+                                return Err(Error::flag_parsing_with_suggestions(
+                                    format!(
+                                        "Flag '--{flag_name}' requires '--{required}' to be set"
+                                    ),
+                                    flag_name.to_string(),
+                                    vec![format!("add --{required} <value>")],
+                                ));
                             }
                         }
                     }
