@@ -1043,10 +1043,39 @@ impl Command {
             if let Some(prev) = previous_args.last() {
                 if prev.starts_with("--") {
                     let flag_name = prev.trim_start_matches("--");
+
+                    // First check if the flag itself has a completion function
+                    if let Some(flag) = current_cmd.flags.get(flag_name) {
+                        if let Some(ref completion_func) = flag.completion {
+                            let result = completion_func(&ctx, &current_word)?;
+                            let format = CompletionFormat::from_shell_type(shell_type.as_deref());
+                            return Ok(format.format(&result, Some(&ctx)));
+                        }
+                    }
+
+                    // Fall back to flag_completions HashMap
                     if let Some(completion_func) = current_cmd.flag_completions.get(flag_name) {
                         let result = completion_func(&ctx, &current_word)?;
                         let format = CompletionFormat::from_shell_type(shell_type.as_deref());
                         return Ok(format.format(&result, Some(&ctx)));
+                    }
+                } else if prev.starts_with('-') && prev.len() == 2 {
+                    // Handle short flag completions
+                    let short_flag = prev.chars().nth(1).unwrap();
+                    if let Some(flag) = current_cmd.find_flag_by_short(short_flag) {
+                        if let Some(ref completion_func) = flag.completion {
+                            let result = completion_func(&ctx, &current_word)?;
+                            let format = CompletionFormat::from_shell_type(shell_type.as_deref());
+                            return Ok(format.format(&result, Some(&ctx)));
+                        }
+
+                        // Also check flag_completions HashMap by flag name
+                        if let Some(completion_func) = current_cmd.flag_completions.get(&flag.name)
+                        {
+                            let result = completion_func(&ctx, &current_word)?;
+                            let format = CompletionFormat::from_shell_type(shell_type.as_deref());
+                            return Ok(format.format(&result, Some(&ctx)));
+                        }
                     }
                 }
             }
@@ -1313,6 +1342,35 @@ impl CommandBuilder {
         self
     }
 
+    /// Adds multiple subcommands to this command at once
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::CommandBuilder;
+    ///
+    /// let cmd = CommandBuilder::new("git")
+    ///     .subcommands(vec![
+    ///         CommandBuilder::new("add")
+    ///             .short("Add file contents to the index")
+    ///             .build(),
+    ///         CommandBuilder::new("commit")
+    ///             .short("Record changes to the repository")
+    ///             .build(),
+    ///         CommandBuilder::new("push")
+    ///             .short("Update remote refs along with associated objects")
+    ///             .build(),
+    ///     ])
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn subcommands(mut self, cmds: Vec<Command>) -> Self {
+        for cmd in cmds {
+            self.command.add_command(cmd);
+        }
+        self
+    }
+
     /// Adds a flag to this command
     ///
     /// # Examples
@@ -1332,6 +1390,29 @@ impl CommandBuilder {
     #[must_use]
     pub fn flag(mut self, flag: Flag) -> Self {
         self.command.flags.insert(flag.name.clone(), flag);
+        self
+    }
+
+    /// Adds multiple flags to this command at once
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use flag_rs::{CommandBuilder, Flag};
+    ///
+    /// let cmd = CommandBuilder::new("server")
+    ///     .flags(vec![
+    ///         Flag::bool("verbose").short('v').usage("Enable verbose output"),
+    ///         Flag::bool("quiet").short('q').usage("Suppress output"),
+    ///         Flag::int("port").short('p').usage("Port to listen on").default_int(8080),
+    ///     ])
+    ///     .build();
+    /// ```
+    #[must_use]
+    pub fn flags(mut self, flags: Vec<Flag>) -> Self {
+        for flag in flags {
+            self.command.flags.insert(flag.name.clone(), flag);
+        }
         self
     }
 

@@ -7,6 +7,7 @@
 //! - Default values
 //! - Hierarchical flag inheritance from parent commands
 
+use crate::completion::{CompletionFunc, CompletionResult};
 use crate::error::{Error, Result};
 use std::collections::HashSet;
 
@@ -155,7 +156,6 @@ pub enum FlagConstraint {
 ///     .value_type(FlagType::String)
 ///     .required();
 /// ```
-#[derive(Clone)]
 pub struct Flag {
     /// The long name of the flag (e.g., "verbose" for --verbose)
     pub name: String,
@@ -171,6 +171,8 @@ pub struct Flag {
     pub value_type: FlagType,
     /// Constraints applied to this flag
     pub constraints: Vec<FlagConstraint>,
+    /// Optional completion function for this flag's values
+    pub completion: Option<CompletionFunc>,
 }
 
 /// Represents the type of value a flag accepts
@@ -221,7 +223,135 @@ impl Flag {
             required: false,
             value_type: FlagType::String,
             constraints: Vec::new(),
+            completion: None,
         }
+    }
+
+    /// Creates a new boolean flag
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    ///
+    /// let flag = Flag::bool("verbose");
+    /// ```
+    #[must_use]
+    pub fn bool(name: impl Into<String>) -> Self {
+        Self::new(name).value_type(FlagType::Bool)
+    }
+
+    /// Creates a new integer flag
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    ///
+    /// let flag = Flag::int("port");
+    /// ```
+    #[must_use]
+    pub fn int(name: impl Into<String>) -> Self {
+        Self::new(name).value_type(FlagType::Int)
+    }
+
+    /// Creates a new float flag
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    ///
+    /// let flag = Flag::float("ratio");
+    /// ```
+    #[must_use]
+    pub fn float(name: impl Into<String>) -> Self {
+        Self::new(name).value_type(FlagType::Float)
+    }
+
+    /// Creates a new string flag
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    ///
+    /// let flag = Flag::string("name");
+    /// ```
+    #[must_use]
+    pub fn string(name: impl Into<String>) -> Self {
+        Self::new(name) // String is the default type
+    }
+
+    /// Creates a new string slice flag (can be specified multiple times)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    ///
+    /// let flag = Flag::string_slice("tag");
+    /// ```
+    #[must_use]
+    pub fn string_slice(name: impl Into<String>) -> Self {
+        Self::new(name).value_type(FlagType::StringSlice)
+    }
+
+    /// Creates a new choice flag with allowed values
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    ///
+    /// let flag = Flag::choice("format", &["json", "yaml", "xml"]);
+    /// ```
+    #[must_use]
+    pub fn choice(name: impl Into<String>, choices: &[&str]) -> Self {
+        let choices: Vec<String> = choices.iter().map(|&s| s.to_string()).collect();
+        Self::new(name).value_type(FlagType::Choice(choices))
+    }
+
+    /// Creates a new range flag with min and max values
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    ///
+    /// let flag = Flag::range("workers", 1, 16);
+    /// ```
+    #[must_use]
+    pub fn range(name: impl Into<String>, min: i64, max: i64) -> Self {
+        Self::new(name).value_type(FlagType::Range(min, max))
+    }
+
+    /// Creates a new file flag
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    ///
+    /// let flag = Flag::file("config");
+    /// ```
+    #[must_use]
+    pub fn file(name: impl Into<String>) -> Self {
+        Self::new(name).value_type(FlagType::File)
+    }
+
+    /// Creates a new directory flag
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    ///
+    /// let flag = Flag::directory("output");
+    /// ```
+    #[must_use]
+    pub fn directory(name: impl Into<String>) -> Self {
+        Self::new(name).value_type(FlagType::Directory)
     }
 
     /// Sets the short name for this flag
@@ -272,6 +402,66 @@ impl Flag {
         self
     }
 
+    /// Sets a default boolean value
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::{Flag, FlagValue};
+    ///
+    /// let flag = Flag::bool("verbose").default_bool(true);
+    /// assert_eq!(flag.default, Some(FlagValue::Bool(true)));
+    /// ```
+    #[must_use]
+    pub fn default_bool(self, value: bool) -> Self {
+        self.default(FlagValue::Bool(value))
+    }
+
+    /// Sets a default string value
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::{Flag, FlagValue};
+    ///
+    /// let flag = Flag::string("name").default_str("anonymous");
+    /// assert_eq!(flag.default, Some(FlagValue::String("anonymous".to_string())));
+    /// ```
+    #[must_use]
+    pub fn default_str(self, value: &str) -> Self {
+        self.default(FlagValue::String(value.to_string()))
+    }
+
+    /// Sets a default integer value
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::{Flag, FlagValue};
+    ///
+    /// let flag = Flag::int("port").default_int(8080);
+    /// assert_eq!(flag.default, Some(FlagValue::Int(8080)));
+    /// ```
+    #[must_use]
+    pub fn default_int(self, value: i64) -> Self {
+        self.default(FlagValue::Int(value))
+    }
+
+    /// Sets a default float value
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::{Flag, FlagValue};
+    ///
+    /// let flag = Flag::float("ratio").default_float(0.5);
+    /// assert_eq!(flag.default, Some(FlagValue::Float(0.5)));
+    /// ```
+    #[must_use]
+    pub fn default_float(self, value: f64) -> Self {
+        self.default(FlagValue::Float(value))
+    }
+
     /// Marks this flag as required
     ///
     /// # Examples
@@ -320,6 +510,55 @@ impl Flag {
         self
     }
 
+    /// Sets a completion function for this flag's values
+    ///
+    /// # Arguments
+    ///
+    /// * `completion` - A function that generates completions for flag values
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::flag::Flag;
+    /// use flag_rs::completion::CompletionResult;
+    ///
+    /// let flag = Flag::file("config")
+    ///     .completion(|ctx, prefix| {
+    ///         // In a real application, you might list config files
+    ///         let configs = vec!["default.conf", "production.conf", "test.conf"];
+    ///         Ok(CompletionResult::new().extend(
+    ///             configs.into_iter()
+    ///                 .filter(|c| c.starts_with(prefix))
+    ///                 .map(String::from)
+    ///         ))
+    ///     });
+    /// ```
+    #[must_use]
+    pub fn completion<F>(mut self, completion: F) -> Self
+    where
+        F: Fn(&crate::Context, &str) -> Result<CompletionResult> + Send + Sync + 'static,
+    {
+        self.completion = Some(Box::new(completion));
+        self
+    }
+}
+
+impl Clone for Flag {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            short: self.short,
+            usage: self.usage.clone(),
+            default: self.default.clone(),
+            required: self.required,
+            value_type: self.value_type.clone(),
+            constraints: self.constraints.clone(),
+            completion: None, // Don't clone the completion function
+        }
+    }
+}
+
+impl Flag {
     /// Parses a string value according to this flag's type
     ///
     /// # Arguments
