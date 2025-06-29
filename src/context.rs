@@ -116,6 +116,180 @@ impl Context {
         &self.flags
     }
 
+    /// Gets a flag value as a boolean
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the flag
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(bool)` if the flag exists and can be parsed as a boolean, `None` otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::context::Context;
+    ///
+    /// let mut ctx = Context::new(vec![]);
+    /// ctx.set_flag("verbose".to_string(), "true".to_string());
+    /// ctx.set_flag("debug".to_string(), "false".to_string());
+    ///
+    /// assert_eq!(ctx.flag_bool("verbose"), Some(true));
+    /// assert_eq!(ctx.flag_bool("debug"), Some(false));
+    /// assert_eq!(ctx.flag_bool("missing"), None);
+    /// ```
+    pub fn flag_bool(&self, name: &str) -> Option<bool> {
+        self.flag(name)
+            .and_then(|v| match v.to_lowercase().as_str() {
+                "true" | "t" | "1" | "yes" | "y" => Some(true),
+                "false" | "f" | "0" | "no" | "n" => Some(false),
+                _ => None,
+            })
+    }
+
+    /// Gets a flag value as an integer
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the flag
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(i64)` if the flag exists and can be parsed as an integer, `None` otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::context::Context;
+    ///
+    /// let mut ctx = Context::new(vec![]);
+    /// ctx.set_flag("port".to_string(), "8080".to_string());
+    ///
+    /// assert_eq!(ctx.flag_int("port"), Some(8080));
+    /// assert_eq!(ctx.flag_int("missing"), None);
+    /// ```
+    pub fn flag_int(&self, name: &str) -> Option<i64> {
+        self.flag(name).and_then(|v| v.parse().ok())
+    }
+
+    /// Gets a flag value as a float
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the flag
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(f64)` if the flag exists and can be parsed as a float, `None` otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::context::Context;
+    ///
+    /// let mut ctx = Context::new(vec![]);
+    /// ctx.set_flag("ratio".to_string(), "0.75".to_string());
+    ///
+    /// assert_eq!(ctx.flag_float("ratio"), Some(0.75));
+    /// assert_eq!(ctx.flag_float("missing"), None);
+    /// ```
+    pub fn flag_float(&self, name: &str) -> Option<f64> {
+        self.flag(name).and_then(|v| v.parse().ok())
+    }
+
+    /// Gets a flag value as a string, returning a default if not present
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the flag
+    /// * `default` - The default value to return if the flag is not set
+    ///
+    /// # Returns
+    ///
+    /// Returns the flag value if present, or the default value
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::context::Context;
+    ///
+    /// let mut ctx = Context::new(vec![]);
+    /// ctx.set_flag("env".to_string(), "production".to_string());
+    ///
+    /// assert_eq!(ctx.flag_str_or("env", "development"), "production");
+    /// assert_eq!(ctx.flag_str_or("missing", "development"), "development");
+    /// ```
+    pub fn flag_str_or<'a>(&'a self, name: &str, default: &'a str) -> &'a str {
+        self.flag(name).map_or(default, String::as_str)
+    }
+
+    /// Gets a flag value as a boolean, returning a default if not present
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the flag
+    /// * `default` - The default value to return if the flag is not set or cannot be parsed
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::context::Context;
+    ///
+    /// let mut ctx = Context::new(vec![]);
+    /// ctx.set_flag("verbose".to_string(), "true".to_string());
+    ///
+    /// assert_eq!(ctx.flag_bool_or("verbose", false), true);
+    /// assert_eq!(ctx.flag_bool_or("missing", false), false);
+    /// ```
+    pub fn flag_bool_or(&self, name: &str, default: bool) -> bool {
+        self.flag_bool(name).unwrap_or(default)
+    }
+
+    /// Gets a flag value as an integer, returning a default if not present
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the flag
+    /// * `default` - The default value to return if the flag is not set or cannot be parsed
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::context::Context;
+    ///
+    /// let mut ctx = Context::new(vec![]);
+    /// ctx.set_flag("port".to_string(), "8080".to_string());
+    ///
+    /// assert_eq!(ctx.flag_int_or("port", 3000), 8080);
+    /// assert_eq!(ctx.flag_int_or("missing", 3000), 3000);
+    /// ```
+    pub fn flag_int_or(&self, name: &str, default: i64) -> i64 {
+        self.flag_int(name).unwrap_or(default)
+    }
+
+    /// Gets a flag value as a float, returning a default if not present
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the flag
+    /// * `default` - The default value to return if the flag is not set or cannot be parsed
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use flag_rs::context::Context;
+    ///
+    /// let mut ctx = Context::new(vec![]);
+    /// ctx.set_flag("ratio".to_string(), "0.75".to_string());
+    ///
+    /// assert_eq!(ctx.flag_float_or("ratio", 0.5), 0.75);
+    /// assert_eq!(ctx.flag_float_or("missing", 0.5), 0.5);
+    /// ```
+    pub fn flag_float_or(&self, name: &str, default: f64) -> f64 {
+        self.flag_float(name).unwrap_or(default)
+    }
+
     /// Stores a typed value in the context
     ///
     /// Values are stored by their type, so only one value of each type
