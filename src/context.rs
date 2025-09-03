@@ -328,7 +328,7 @@ impl Context {
     pub fn get<T: Any + Send + Sync>(&self) -> Option<&T> {
         self.values
             .get(&TypeId::of::<T>())
-            .and_then(|v| v.downcast_ref())
+            .and_then(|v| (**v).downcast_ref())
     }
 
     /// Retrieves a mutable reference to a typed value from the context
@@ -343,7 +343,7 @@ impl Context {
     pub fn get_mut<T: Any + Send + Sync>(&mut self) -> Option<&mut T> {
         self.values
             .get_mut(&TypeId::of::<T>())
-            .and_then(|v| v.downcast_mut())
+            .and_then(|v| (**v).downcast_mut())
     }
 }
 
