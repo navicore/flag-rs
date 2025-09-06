@@ -4,6 +4,7 @@
 //! against theoretical alternatives and measures key operations.
 
 use flag_rs::{CommandBuilder, CompletionResult, Flag, FlagType, FlagValue};
+use std::panic::AssertUnwindSafe;
 use std::time::{Duration, Instant};
 
 /// Simple benchmark harness
@@ -338,18 +339,18 @@ fn bench_help_generation() {
     let bench = Benchmark::new("Generate help for simple command", 1_000);
     let duration = bench.run(|| {
         // Capture help output to avoid printing
-        let _ = std::panic::catch_unwind(|| {
+        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
             simple.print_help();
-        });
+        }));
     });
     bench.report(duration);
 
     let bench = Benchmark::new("Generate help for complex command", 100);
     let duration = bench.run(|| {
         // Capture help output to avoid printing
-        let _ = std::panic::catch_unwind(|| {
+        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
             complex.print_help();
-        });
+        }));
     });
     bench.report(duration);
 }
