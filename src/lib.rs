@@ -327,6 +327,8 @@ pub mod completion_optimized;
 /// String interning pool for reducing memory usage
 pub mod string_pool;
 
+/// Declarative macros for simplified CLI construction
+pub mod macros;
 /// Memory-optimized flag parsing
 pub mod parse_optimized;
 
