@@ -3,14 +3,14 @@
 //! This module provides a set of macros that make it easy to define commands, flags,
 //! and completions in a readable, declarative style while reducing boilerplate code.
 
-/// Creates a static completion function with predefined values and descriptions
+/// Creates completion functions with support for both static and dynamic completions
 ///
 /// # Examples
 ///
 /// ```rust
 /// use flag_rs::completion;
 ///
-/// // Simple completion with values and descriptions
+/// // Static completion with values and descriptions
 /// completion! {
 ///     log_levels {
 ///         completions: [
@@ -23,10 +23,33 @@
 ///     }
 /// }
 ///
-/// // Simple completion with just values
+/// // Simple static completion with just values
 /// completion! {
 ///     environments {
 ///         completions: ["dev", "staging", "prod"]
+///     }
+/// }
+///
+/// // Dynamic completion with closure
+/// completion! {
+///     active_sessions {
+///         dynamic: |ctx, prefix| {
+///             // Your custom completion logic here
+///             let sessions = vec!["session1", "session2", "session3"];
+///             let mut result = flag_rs::CompletionResult::new();
+///             for session in sessions {
+///                 if session.starts_with(prefix) {
+///                     result = result.add_with_description(
+///                         session.to_string(),
+///                         "Active session".to_string()
+///                     );
+///                 }
+///             }
+///             if prefix.is_empty() {
+///                 result = result.add_help_text("Currently active sessions");
+///             }
+///             Ok(result)
+///         }
 ///     }
 /// }
 /// ```
@@ -71,6 +94,38 @@ macro_rules! completion {
                         result = result.add($value.to_string());
                     }
                 )*
+
+                Ok(result)
+            }
+        }
+    };
+
+    // Dynamic completion with closure
+    ($name:ident {
+        dynamic: $closure:expr $(,)?
+    }) => {
+        fn $name() -> impl Fn(&$crate::Context, &str) -> $crate::Result<$crate::CompletionResult> + 'static {
+            move |ctx: &$crate::Context, prefix: &str| {
+                let completion_fn: fn(&$crate::Context, &str) -> $crate::Result<$crate::CompletionResult> = $closure;
+                completion_fn(ctx, prefix)
+            }
+        }
+    };
+
+    // Dynamic completion with closure and help text
+    ($name:ident {
+        dynamic: $closure:expr,
+        help: $help_text:expr $(,)?
+    }) => {
+        fn $name() -> impl Fn(&$crate::Context, &str) -> $crate::Result<$crate::CompletionResult> + 'static {
+            move |ctx: &$crate::Context, prefix: &str| {
+                let completion_fn: fn(&$crate::Context, &str) -> $crate::Result<$crate::CompletionResult> = $closure;
+                let mut result = completion_fn(ctx, prefix)?;
+
+                // Add help text when no prefix is provided
+                if prefix.is_empty() {
+                    result = result.add_help_text($help_text);
+                }
 
                 Ok(result)
             }
@@ -311,5 +366,81 @@ mod tests {
         assert_eq!(flag_list.len(), 2);
         assert_eq!(flag_list[0].name, "verbose");
         assert_eq!(flag_list[1].name, "port");
+    }
+
+    #[test]
+    fn test_dynamic_completion_macro() {
+        // Test dynamic completion without help
+        completion! {
+            dynamic_test {
+                dynamic: |_ctx, prefix| {
+                    let mut result = crate::CompletionResult::new();
+                    let items = vec!["apple", "apricot", "banana"];
+
+                    for item in items {
+                        if item.starts_with(prefix) {
+                            result = result.add_with_description(
+                                item.to_string(),
+                                format!("{item} fruit")
+                            );
+                        }
+                    }
+
+                    Ok(result)
+                }
+            }
+        }
+
+        let completion_fn = dynamic_test();
+        let ctx = Context::new(vec![]);
+
+        // Test prefix matching
+        let result = completion_fn(&ctx, "ap").unwrap();
+        assert_eq!(result.values.len(), 2);
+        assert!(result.values.iter().any(|v| v == "apple"));
+        assert!(result.values.iter().any(|v| v == "apricot"));
+        assert!(!result.values.iter().any(|v| v == "banana"));
+
+        // Test no prefix returns all
+        let result = completion_fn(&ctx, "").unwrap();
+        assert_eq!(result.values.len(), 3);
+    }
+
+    #[test]
+    fn test_dynamic_completion_with_help() {
+        // Test dynamic completion with help text
+        completion! {
+            dynamic_with_help {
+                dynamic: |_ctx, prefix| {
+                    let mut result = crate::CompletionResult::new();
+                    let sessions = vec!["session1", "session2", "session3"];
+
+                    for session in sessions {
+                        if session.starts_with(prefix) {
+                            result = result.add_with_description(
+                                session.to_string(),
+                                "Active session".to_string()
+                            );
+                        }
+                    }
+
+                    Ok(result)
+                },
+                help: "Currently active sessions"
+            }
+        }
+
+        let completion_fn = dynamic_with_help();
+        let ctx = Context::new(vec![]);
+
+        // Test that help is added when no prefix
+        let result = completion_fn(&ctx, "").unwrap();
+        assert!(!result.active_help.is_empty());
+        assert_eq!(result.values.len(), 3);
+
+        // Test prefix filtering still works
+        let result = completion_fn(&ctx, "session1").unwrap();
+        assert_eq!(result.values.len(), 1);
+        assert_eq!(result.values[0], "session1");
     }
 }
