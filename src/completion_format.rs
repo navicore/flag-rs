@@ -355,12 +355,16 @@ mod tests {
 
         // Test Zsh format
         let zsh_formatted = CompletionFormat::Zsh.format(&result, Some(&ctx));
-        assert!(zsh_formatted
-            .iter()
-            .any(|s| s.contains("_activehelp_::This is a help message")));
-        assert!(zsh_formatted
-            .iter()
-            .any(|s| s.contains("_activehelp_::Conditional help")));
+        assert!(
+            zsh_formatted
+                .iter()
+                .any(|s| s.contains("_activehelp_::This is a help message"))
+        );
+        assert!(
+            zsh_formatted
+                .iter()
+                .any(|s| s.contains("_activehelp_::Conditional help"))
+        );
 
         // Test Fish format
         let fish_formatted = CompletionFormat::Fish.format(&result, Some(&ctx));

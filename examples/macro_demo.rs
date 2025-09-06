@@ -3,7 +3,7 @@
 //! This example shows how to use the new declarative macros to reduce
 //! boilerplate when defining commands, flags, and completions.
 
-use flag_rs::{completion, flag, flags, CommandBuilder, Shell};
+use flag_rs::{CommandBuilder, Shell, completion, flag, flags};
 
 fn main() {
     let app = build_app();

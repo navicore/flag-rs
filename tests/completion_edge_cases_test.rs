@@ -80,9 +80,11 @@ fn test_completion_with_quotes() {
     // Test that quotes are preserved in completions
     let result = app.get_completions(&ctx, "file", None).unwrap();
     assert_eq!(result.values.len(), 2);
-    assert!(result
-        .values
-        .contains(&r#"file"with"quotes.txt"#.to_string()));
+    assert!(
+        result
+            .values
+            .contains(&r#"file"with"quotes.txt"#.to_string())
+    );
     assert!(result.values.contains(&r"file'with'quotes.txt".to_string()));
 }
 
@@ -304,8 +306,8 @@ fn test_completion_with_mixed_flag_types() {
 
 #[test]
 fn test_completion_state_isolation() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     let call_count = Arc::new(AtomicUsize::new(0));
     let count_clone = Arc::clone(&call_count);

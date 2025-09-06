@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn test_error_display() {
         // Test without color for predictable test output
-        std::env::set_var("NO_COLOR", "1");
+        unsafe { std::env::set_var("NO_COLOR", "1") };
 
         assert_eq!(
             Error::CommandNotFound {
@@ -285,7 +285,7 @@ mod tests {
             "Error: invalid flag for flag 'invalid'"
         );
 
-        std::env::remove_var("NO_COLOR");
+        unsafe { std::env::remove_var("NO_COLOR") };
     }
 
     #[test]
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn test_error_with_suggestions() {
         // Test without color for predictable test output
-        std::env::set_var("NO_COLOR", "1");
+        unsafe { std::env::set_var("NO_COLOR", "1") };
 
         // Single suggestion
         let error = Error::CommandNotFound {
@@ -326,6 +326,6 @@ mod tests {
             "Error: unknown command lst\n\nDid you mean one of these?\n    list\n    last\n"
         );
 
-        std::env::remove_var("NO_COLOR");
+        unsafe { std::env::remove_var("NO_COLOR") };
     }
 }

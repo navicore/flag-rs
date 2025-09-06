@@ -943,21 +943,27 @@ mod tests {
         let ssl_flag = Flag::new("ssl").constraint(FlagConstraint::RequiredIf("port".to_string()));
 
         // Should pass when port flag is not set
-        assert!(ssl_flag
-            .validate_constraints("ssl", &provided_flags)
-            .is_ok());
+        assert!(
+            ssl_flag
+                .validate_constraints("ssl", &provided_flags)
+                .is_ok()
+        );
 
         // Should fail when port is set but ssl is not
         provided_flags.insert("port".to_string());
-        assert!(ssl_flag
-            .validate_constraints("ssl", &provided_flags)
-            .is_err());
+        assert!(
+            ssl_flag
+                .validate_constraints("ssl", &provided_flags)
+                .is_err()
+        );
 
         // Should pass when both are set
         provided_flags.insert("ssl".to_string());
-        assert!(ssl_flag
-            .validate_constraints("ssl", &provided_flags)
-            .is_ok());
+        assert!(
+            ssl_flag
+                .validate_constraints("ssl", &provided_flags)
+                .is_ok()
+        );
 
         // Test ConflictsWith constraint
         let encrypt_flag = Flag::new("encrypt").constraint(FlagConstraint::ConflictsWith(vec![
@@ -966,14 +972,18 @@ mod tests {
 
         provided_flags.clear();
         provided_flags.insert("encrypt".to_string());
-        assert!(encrypt_flag
-            .validate_constraints("encrypt", &provided_flags)
-            .is_ok());
+        assert!(
+            encrypt_flag
+                .validate_constraints("encrypt", &provided_flags)
+                .is_ok()
+        );
 
         provided_flags.insert("no-encrypt".to_string());
-        assert!(encrypt_flag
-            .validate_constraints("encrypt", &provided_flags)
-            .is_err());
+        assert!(
+            encrypt_flag
+                .validate_constraints("encrypt", &provided_flags)
+                .is_err()
+        );
 
         // Test Requires constraint
         let output_flag =
@@ -981,13 +991,17 @@ mod tests {
 
         provided_flags.clear();
         provided_flags.insert("output".to_string());
-        assert!(output_flag
-            .validate_constraints("output", &provided_flags)
-            .is_err());
+        assert!(
+            output_flag
+                .validate_constraints("output", &provided_flags)
+                .is_err()
+        );
 
         provided_flags.insert("format".to_string());
-        assert!(output_flag
-            .validate_constraints("output", &provided_flags)
-            .is_ok());
+        assert!(
+            output_flag
+                .validate_constraints("output", &provided_flags)
+                .is_ok()
+        );
     }
 }

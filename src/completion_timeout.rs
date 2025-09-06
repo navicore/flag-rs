@@ -198,9 +198,11 @@ mod tests {
         let completion = result.unwrap();
         // Should have timeout warning in active help
         assert!(!completion.active_help.is_empty());
-        assert!(completion.active_help[0]
-            .message
-            .contains("Completion timed out"));
+        assert!(
+            completion.active_help[0]
+                .message
+                .contains("Completion timed out")
+        );
     }
 
     #[test]
