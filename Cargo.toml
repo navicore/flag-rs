@@ -5,7 +5,7 @@ license = "MIT"
 authors = ["Ed Sweeney <ed@onextent.com>"]
 edition = "2024"
 description = "A Cobra-inspired CLI framework with dynamic completions"
-repository = "https://github.com/navicore/cobra-rs"
+repository = "https://github.com/navicore/flag-rs"
 keywords = ["cli", "command-line", "parser", "completion", "cobra"]
 categories = ["command-line-interface", "command-line-utilities"]
 
