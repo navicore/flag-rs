@@ -1,7 +1,7 @@
 //! Demonstrates the comprehensive command! macro from flag-rs Phase II
 //!
 //! This example shows how to use the new command! macro to eliminate
-//! CommandBuilder boilerplate while maintaining all functionality including:
+//! `CommandBuilder` boilerplate while maintaining all functionality including:
 //! - Flags with defaults and completions
 //! - Subcommands with their own flags
 //! - Dynamic and static completions
@@ -9,6 +9,19 @@
 
 use flag_rs::{Shell, command, completion, flag};
 use std::fs;
+use std::path::Path;
+
+fn matches_config_extensions(name: &str) -> bool {
+    let path = Path::new(name);
+    if let Some(ext) = path.extension() {
+        matches!(
+            ext.to_str().map(str::to_lowercase).as_deref(),
+            Some("toml" | "yaml" | "yml" | "json")
+        )
+    } else {
+        false
+    }
+}
 
 fn main() {
     let app = build_main_app();
@@ -43,7 +56,7 @@ fn build_main_app() -> flag_rs::Command {
                 if let Ok(entries) = fs::read_dir(".") {
                     for entry in entries.flatten() {
                         if let Some(name) = entry.file_name().to_str() {
-                            if (name.ends_with(".toml") || name.ends_with(".yaml") || name.ends_with(".json")) && name.starts_with(prefix) {
+                            if matches_config_extensions(name) && name.starts_with(prefix) {
                                 result = result.add_with_description(
                                     name.to_string(),
                                     "Configuration file".to_string()
@@ -184,11 +197,11 @@ fn build_process() -> flag_rs::Command {
                 println!("  Timeout: {}s", timeout);
                 println!("  Force: {}", force);
 
-                if !force {
+                if force {
+                    println!("  ✅ Signal {} would be sent (demo mode)", signal);
+                } else {
                     println!("  ⚠️  Use --force to actually send the signal");
                     println!("  (This is just a demo - no actual signal sent)");
-                } else {
-                    println!("  ✅ Signal {} would be sent (demo mode)", signal);
                 }
 
                 Ok(())

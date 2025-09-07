@@ -138,27 +138,21 @@ macro_rules! completion {
 /// # Examples
 ///
 /// ```rust
-/// use flag_rs::command;
+/// use flag_rs::{command, flag};
 ///
-/// // Simple command with flags and run handler
+/// // Simple command with just a run handler
 /// command! {
 ///     myapp {
 ///         short: "A demo CLI application",
 ///         long: "This is my awesome CLI app with full macro support",
 ///         
-///         flags: [
-///             verbose(v): bool = false, usage = "Enable verbose output";
-///             config(c): string, usage = "Config file", required = true;
-///         ],
-///         
-///         run: |ctx| {
-///             let verbose = ctx.flag_bool("verbose").unwrap_or(false);
-///             let config = ctx.flag("config").expect("Config required");
-///             println!("Starting with config: {}", config);
+///         run: |_ctx| {
+///             println!("Hello from myapp!");
 ///             Ok(())
 ///         }
 ///     }
 /// }
+/// let app = myapp();
 /// ```
 #[macro_export]
 macro_rules! command {
@@ -302,12 +296,6 @@ macro_rules! command {
     };
 
     // Required flags without defaults
-    (@build_flag $name:ident($short:ident), $flag_type:ident, usage = $usage:expr, required = true) => {
-        flag!($name($short): $flag_type, usage = $usage, required = true)
-    };
-    (@build_flag $name:ident, $flag_type:ident, usage = $usage:expr, required = true) => {
-        flag!($name: $flag_type, usage = $usage, required = true)
-    };
 }
 
 /// Creates a flag with sensible defaults and readable syntax
