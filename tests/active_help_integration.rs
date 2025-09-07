@@ -48,12 +48,16 @@ fn test_active_help_in_completions() {
     assert!(completions.iter().any(|s| s == "production"));
 
     // ActiveHelp messages should be included with special prefix
-    assert!(completions
-        .iter()
-        .any(|s| s.contains("Use -v for detailed deployment logs")));
-    assert!(completions
-        .iter()
-        .any(|s| s.contains("Production deployments require approval")));
+    assert!(
+        completions
+            .iter()
+            .any(|s| s.contains("Use -v for detailed deployment logs"))
+    );
+    assert!(
+        completions
+            .iter()
+            .any(|s| s.contains("Production deployments require approval"))
+    );
 }
 
 #[test]
@@ -91,12 +95,16 @@ fn test_conditional_active_help() {
     // Test without format flag
     let args1 = vec!["__complete".to_string(), "list".to_string(), String::new()];
     let result1 = cmd.handle_completion_request(&args1).unwrap();
-    assert!(result1
-        .iter()
-        .any(|s| s.contains("Use --format json for machine-readable output")));
-    assert!(!result1
-        .iter()
-        .any(|s| s.contains("Table format supports color output")));
+    assert!(
+        result1
+            .iter()
+            .any(|s| s.contains("Use --format json for machine-readable output"))
+    );
+    assert!(
+        !result1
+            .iter()
+            .any(|s| s.contains("Table format supports color output"))
+    );
 
     // Test with format=table
     let args2 = vec![
@@ -107,12 +115,16 @@ fn test_conditional_active_help() {
         String::new(),
     ];
     let result2 = cmd.handle_completion_request(&args2).unwrap();
-    assert!(!result2
-        .iter()
-        .any(|s| s.contains("Use --format json for machine-readable output")));
-    assert!(result2
-        .iter()
-        .any(|s| s.contains("Table format supports color output")));
+    assert!(
+        !result2
+            .iter()
+            .any(|s| s.contains("Use --format json for machine-readable output"))
+    );
+    assert!(
+        result2
+            .iter()
+            .any(|s| s.contains("Table format supports color output"))
+    );
 }
 
 #[test]
@@ -131,18 +143,20 @@ fn test_active_help_with_different_shells() {
         .build();
 
     // Test with bash shell
-    std::env::set_var("TEST_COMPLETE", "bash");
+    unsafe { std::env::set_var("TEST_COMPLETE", "bash") };
     let bash_result = cmd
         .handle_completion_request(&["__complete".to_string(), "info".to_string(), String::new()])
         .unwrap();
 
     // Bash format should have the _activehelp_ prefix
-    assert!(bash_result
-        .iter()
-        .any(|s| s == "_activehelp_ This is a help message"));
+    assert!(
+        bash_result
+            .iter()
+            .any(|s| s == "_activehelp_ This is a help message")
+    );
 
     // Clean up
-    std::env::remove_var("TEST_COMPLETE");
+    unsafe { std::env::remove_var("TEST_COMPLETE") };
 }
 
 #[test]
@@ -156,17 +170,17 @@ fn test_active_help_config() {
     assert!(config.show_on_no_completions);
 
     // Test with environment variable
-    std::env::set_var("COBRA_ACTIVE_HELP", "0");
+    unsafe { std::env::set_var("COBRA_ACTIVE_HELP", "0") };
     assert!(!config.is_enabled());
 
-    std::env::set_var("COBRA_ACTIVE_HELP", "false");
+    unsafe { std::env::set_var("COBRA_ACTIVE_HELP", "false") };
     assert!(!config.is_enabled());
 
-    std::env::set_var("COBRA_ACTIVE_HELP", "1");
+    unsafe { std::env::set_var("COBRA_ACTIVE_HELP", "1") };
     assert!(config.is_enabled());
 
     // Clean up
-    std::env::remove_var("COBRA_ACTIVE_HELP");
+    unsafe { std::env::remove_var("COBRA_ACTIVE_HELP") };
 }
 
 #[test]
@@ -232,9 +246,11 @@ fn test_active_help_in_flag_completion() {
     let result = cmd.handle_completion_request(&args).unwrap();
 
     assert!(result.iter().any(|s| s.contains("development")));
-    assert!(result
-        .iter()
-        .any(|s| s.contains("Choose an environment to deploy to")));
+    assert!(
+        result
+            .iter()
+            .any(|s| s.contains("Choose an environment to deploy to"))
+    );
 
     // Test with "prod" prefix
     let args2 = vec![
@@ -245,9 +261,11 @@ fn test_active_help_in_flag_completion() {
     let result2 = cmd.handle_completion_request(&args2).unwrap();
 
     assert!(result2.iter().any(|s| s.contains("production")));
-    assert!(result2
-        .iter()
-        .any(|s| s.contains("Production deployments are permanent")));
+    assert!(
+        result2
+            .iter()
+            .any(|s| s.contains("Production deployments are permanent"))
+    );
 }
 
 #[test]

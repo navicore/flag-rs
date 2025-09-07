@@ -118,15 +118,19 @@ mod tests {
         let validator = ArgValidator::ExactArgs(2);
 
         // Should pass with exactly 2 args
-        assert!(validator
-            .validate(&["arg1".to_string(), "arg2".to_string()])
-            .is_ok());
+        assert!(
+            validator
+                .validate(&["arg1".to_string(), "arg2".to_string()])
+                .is_ok()
+        );
 
         // Should fail with wrong number of args
         assert!(validator.validate(&["arg1".to_string()]).is_err());
-        assert!(validator
-            .validate(&["arg1".to_string(), "arg2".to_string(), "arg3".to_string()])
-            .is_err());
+        assert!(
+            validator
+                .validate(&["arg1".to_string(), "arg2".to_string(), "arg3".to_string()])
+                .is_err()
+        );
     }
 
     #[test]
@@ -134,12 +138,16 @@ mod tests {
         let validator = ArgValidator::MinimumArgs(2);
 
         // Should pass with 2 or more args
-        assert!(validator
-            .validate(&["arg1".to_string(), "arg2".to_string()])
-            .is_ok());
-        assert!(validator
-            .validate(&["arg1".to_string(), "arg2".to_string(), "arg3".to_string()])
-            .is_ok());
+        assert!(
+            validator
+                .validate(&["arg1".to_string(), "arg2".to_string()])
+                .is_ok()
+        );
+        assert!(
+            validator
+                .validate(&["arg1".to_string(), "arg2".to_string(), "arg3".to_string()])
+                .is_ok()
+        );
 
         // Should fail with fewer args
         assert!(validator.validate(&["arg1".to_string()]).is_err());
@@ -153,14 +161,18 @@ mod tests {
         // Should pass with 2 or fewer args
         assert!(validator.validate(&[]).is_ok());
         assert!(validator.validate(&["arg1".to_string()]).is_ok());
-        assert!(validator
-            .validate(&["arg1".to_string(), "arg2".to_string()])
-            .is_ok());
+        assert!(
+            validator
+                .validate(&["arg1".to_string(), "arg2".to_string()])
+                .is_ok()
+        );
 
         // Should fail with more args
-        assert!(validator
-            .validate(&["arg1".to_string(), "arg2".to_string(), "arg3".to_string()])
-            .is_err());
+        assert!(
+            validator
+                .validate(&["arg1".to_string(), "arg2".to_string(), "arg3".to_string()])
+                .is_err()
+        );
     }
 
     #[test]
@@ -169,23 +181,29 @@ mod tests {
 
         // Should pass within range
         assert!(validator.validate(&["arg1".to_string()]).is_ok());
-        assert!(validator
-            .validate(&["arg1".to_string(), "arg2".to_string()])
-            .is_ok());
-        assert!(validator
-            .validate(&["arg1".to_string(), "arg2".to_string(), "arg3".to_string()])
-            .is_ok());
+        assert!(
+            validator
+                .validate(&["arg1".to_string(), "arg2".to_string()])
+                .is_ok()
+        );
+        assert!(
+            validator
+                .validate(&["arg1".to_string(), "arg2".to_string(), "arg3".to_string()])
+                .is_ok()
+        );
 
         // Should fail outside range
         assert!(validator.validate(&[]).is_err());
-        assert!(validator
-            .validate(&[
-                "1".to_string(),
-                "2".to_string(),
-                "3".to_string(),
-                "4".to_string()
-            ])
-            .is_err());
+        assert!(
+            validator
+                .validate(&[
+                    "1".to_string(),
+                    "2".to_string(),
+                    "3".to_string(),
+                    "4".to_string()
+                ])
+                .is_err()
+        );
     }
 
     #[test]
@@ -198,15 +216,19 @@ mod tests {
 
         // Should pass with valid args
         assert!(validator.validate(&["start".to_string()]).is_ok());
-        assert!(validator
-            .validate(&["stop".to_string(), "restart".to_string()])
-            .is_ok());
+        assert!(
+            validator
+                .validate(&["stop".to_string(), "restart".to_string()])
+                .is_ok()
+        );
 
         // Should fail with invalid args
         assert!(validator.validate(&["invalid".to_string()]).is_err());
-        assert!(validator
-            .validate(&["start".to_string(), "invalid".to_string()])
-            .is_err());
+        assert!(
+            validator
+                .validate(&["start".to_string(), "invalid".to_string()])
+                .is_err()
+        );
     }
 
     #[test]
@@ -224,13 +246,17 @@ mod tests {
         }));
 
         // Should pass with all integers
-        assert!(validator
-            .validate(&["1".to_string(), "2".to_string(), "3".to_string()])
-            .is_ok());
+        assert!(
+            validator
+                .validate(&["1".to_string(), "2".to_string(), "3".to_string()])
+                .is_ok()
+        );
 
         // Should fail with non-integers
-        assert!(validator
-            .validate(&["1".to_string(), "abc".to_string()])
-            .is_err());
+        assert!(
+            validator
+                .validate(&["1".to_string(), "abc".to_string()])
+                .is_err()
+        );
     }
 }

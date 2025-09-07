@@ -5,8 +5,8 @@
 use flag_rs::completion_cache::CompletionCache;
 use flag_rs::completion_timeout::{make_timeout_completion, with_timeout};
 use flag_rs::{CommandBuilder, CompletionResult, Context};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -176,10 +176,12 @@ fn test_make_timeout_completion_wrapper() {
 
     // Slow completion should timeout
     let result = wrapped(&ctx, "slow").unwrap();
-    assert!(result
-        .active_help
-        .iter()
-        .any(|h| h.message.contains("timed out")));
+    assert!(
+        result
+            .active_help
+            .iter()
+            .any(|h| h.message.contains("timed out"))
+    );
 
     assert_eq!(call_count.load(Ordering::SeqCst), 2);
 }

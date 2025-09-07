@@ -5,7 +5,7 @@
 
 #![allow(clippy::or_fun_call)]
 
-use flag_rs::completion_timeout::{make_timeout_completion, DEFAULT_COMPLETION_TIMEOUT};
+use flag_rs::completion_timeout::{DEFAULT_COMPLETION_TIMEOUT, make_timeout_completion};
 use flag_rs::{CommandBuilder, CompletionResult, Flag, FlagType};
 use std::thread;
 use std::time::Duration;
