@@ -8,7 +8,7 @@ use crate::completion_format::CompletionFormat;
 use crate::context::Context;
 use crate::error::{Error, Result};
 use crate::flag::{Flag, FlagConstraint, FlagType, FlagValue};
-use crate::suggestion::{find_suggestions, DEFAULT_SUGGESTION_DISTANCE};
+use crate::suggestion::{DEFAULT_SUGGESTION_DISTANCE, find_suggestions};
 use crate::terminal::{format_help_entry, get_terminal_width, wrap_text_to_terminal};
 use crate::validator::ArgValidator;
 use std::collections::{HashMap, HashSet};
@@ -240,7 +240,7 @@ impl Command {
         // Check if we're in completion mode
         if let Ok(_shell) = std::env::var(format!("{}_COMPLETE", self.name.to_uppercase())) {
             // Disable colors during completion to avoid terminal rendering issues
-            std::env::set_var("NO_COLOR", "1");
+            unsafe { std::env::set_var("NO_COLOR", "1") };
 
             match self.handle_completion_request(&args) {
                 Ok(suggestions) => {
@@ -573,7 +573,7 @@ impl Command {
     ) -> Result<()> {
         // Execute parent persistent pre-run hooks (from root to immediate parent)
         for (pre_hook, _) in parent_hooks {
-            if let Some(ref hook) = pre_hook {
+            if let Some(hook) = pre_hook {
                 hook(ctx)?;
             }
         }
@@ -623,7 +623,7 @@ impl Command {
         // Execute parent persistent post-run hooks (from immediate parent to root)
         let mut final_result = persistent_result;
         for (_, post_hook) in parent_hooks.iter().rev() {
-            if let Some(ref hook) = post_hook {
+            if let Some(hook) = post_hook {
                 match final_result {
                     Ok(()) => final_result = hook(ctx),
                     Err(e) => {

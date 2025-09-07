@@ -12,9 +12,10 @@ fn test_exact_args_validator() {
         .build();
 
     // Should succeed with exactly 2 args
-    assert!(cmd
-        .execute(vec!["arg1".to_string(), "arg2".to_string()])
-        .is_ok());
+    assert!(
+        cmd.execute(vec!["arg1".to_string(), "arg2".to_string()])
+            .is_ok()
+    );
 
     // Should fail with wrong number of args
     let result = cmd.execute(vec!["arg1".to_string()]);
@@ -45,9 +46,10 @@ fn test_minimum_args_validator() {
 
     // Should succeed with 1 or more args
     assert!(cmd.execute(vec!["arg1".to_string()]).is_ok());
-    assert!(cmd
-        .execute(vec!["arg1".to_string(), "arg2".to_string()])
-        .is_ok());
+    assert!(
+        cmd.execute(vec!["arg1".to_string(), "arg2".to_string()])
+            .is_ok()
+    );
 
     // Should fail with no args
     let result = cmd.execute(vec![]);
@@ -70,9 +72,10 @@ fn test_maximum_args_validator() {
     // Should succeed with 0, 1, or 2 args
     assert!(cmd.execute(vec![]).is_ok());
     assert!(cmd.execute(vec!["arg1".to_string()]).is_ok());
-    assert!(cmd
-        .execute(vec!["arg1".to_string(), "arg2".to_string()])
-        .is_ok());
+    assert!(
+        cmd.execute(vec!["arg1".to_string(), "arg2".to_string()])
+            .is_ok()
+    );
 
     // Should fail with more than 2 args
     let result = cmd.execute(vec!["1".to_string(), "2".to_string(), "3".to_string()]);
@@ -95,20 +98,22 @@ fn test_range_args_validator() {
     // Should succeed within range
     assert!(cmd.execute(vec!["1".to_string()]).is_ok());
     assert!(cmd.execute(vec!["1".to_string(), "2".to_string()]).is_ok());
-    assert!(cmd
-        .execute(vec!["1".to_string(), "2".to_string(), "3".to_string()])
-        .is_ok());
+    assert!(
+        cmd.execute(vec!["1".to_string(), "2".to_string(), "3".to_string()])
+            .is_ok()
+    );
 
     // Should fail outside range
     assert!(cmd.execute(vec![]).is_err());
-    assert!(cmd
-        .execute(vec![
+    assert!(
+        cmd.execute(vec![
             "1".to_string(),
             "2".to_string(),
             "3".to_string(),
             "4".to_string()
         ])
-        .is_err());
+        .is_err()
+    );
 }
 
 #[test]
@@ -153,7 +158,7 @@ fn test_custom_validator() {
                             message: format!("'{arg}' must be a positive integer"),
                             expected: "positive integer".to_string(),
                             received: args.len(),
-                        })
+                        });
                     }
                 }
             }
@@ -163,9 +168,10 @@ fn test_custom_validator() {
         .build();
 
     // Should succeed with positive integers
-    assert!(cmd
-        .execute(vec!["1".to_string(), "2".to_string(), "3".to_string()])
-        .is_ok());
+    assert!(
+        cmd.execute(vec!["1".to_string(), "2".to_string(), "3".to_string()])
+            .is_ok()
+    );
 
     // Should fail with non-positive integer
     assert!(cmd.execute(vec!["0".to_string()]).is_err());
@@ -188,9 +194,10 @@ fn test_validator_with_subcommands() {
         .build();
 
     // Should validate args for subcommand
-    assert!(cmd
-        .execute(vec!["child".to_string(), "arg".to_string()])
-        .is_ok());
+    assert!(
+        cmd.execute(vec!["child".to_string(), "arg".to_string()])
+            .is_ok()
+    );
 
     // Should fail validation for subcommand
     let result = cmd.execute(vec!["child".to_string()]);
@@ -249,9 +256,10 @@ fn test_multiple_validators_scenarios() {
         .build();
 
     // Should succeed with .txt files
-    assert!(cmd
-        .execute(vec!["file1.txt".to_string(), "file2.txt".to_string()])
-        .is_ok());
+    assert!(
+        cmd.execute(vec!["file1.txt".to_string(), "file2.txt".to_string()])
+            .is_ok()
+    );
 
     // Should fail with non-.txt file
     assert!(cmd.execute(vec!["file1.pdf".to_string()]).is_err());

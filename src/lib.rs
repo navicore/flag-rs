@@ -50,7 +50,7 @@
 //!                 let verbose = ctx.flag("verbose")
 //!                     .and_then(|s| s.parse::<bool>().ok())
 //!                     .unwrap_or(false);
-//!                 
+
 //!                 let port = ctx.flag("port")
 //!                     .and_then(|s| s.parse::<i64>().ok())
 //!                     .unwrap_or(8080);
@@ -90,7 +90,7 @@
 //!                         let namespace = ctx.flag("namespace")
 //!                             .map(|s| s.as_str())
 //!                             .unwrap_or("default");
-//!                         
+//!
 //!                         let pods = vec!["nginx-abc123", "redis-def456", "postgres-ghi789"];
 //!                         Ok(CompletionResult::new().extend(
 //!                             pods.into_iter()
@@ -118,7 +118,7 @@
 //!         .run(|ctx| {
 //!             let shell_name = ctx.args().first()
 //!                 .ok_or(flag_rs::Error::ArgumentParsing("shell name required".to_string()))?;
-//!             
+//!
 //!             // In a real app, get the root command here
 //!             // let script = match shell_name.as_str() {
 //!             //     "bash" => root_cmd.generate_completion(Shell::Bash),
@@ -139,7 +139,7 @@
 //! # Bash
 //! source <(myapp completion bash)
 //!
-//! # Zsh  
+//! # Zsh
 //! source <(myapp completion zsh)
 //!
 //! # Fish
@@ -264,13 +264,13 @@
 //!     .run(|ctx| {
 //!         let env = ctx.args().first()
 //!             .ok_or(Error::ArgumentParsing("environment required".to_string()))?;
-//!         
+//!
 //!         if env != "production" && env != "staging" {
 //!             return Err(Error::Validation(
 //!                 format!("unknown environment: {}", env)
 //!             ));
 //!         }
-//!         
+//!
 //!         Ok(())
 //!     })
 //!     .build();

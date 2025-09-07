@@ -21,7 +21,7 @@ fn test_terminal_width_respects_columns_env() {
     ];
 
     for (env_value, expected) in test_cases {
-        env::set_var("COLUMNS", env_value);
+        unsafe { env::set_var("COLUMNS", env_value) };
         assert_eq!(
             get_terminal_width(),
             expected,
@@ -30,7 +30,7 @@ fn test_terminal_width_respects_columns_env() {
     }
 
     // Test with invalid COLUMNS
-    env::set_var("COLUMNS", "invalid");
+    unsafe { env::set_var("COLUMNS", "invalid") };
     assert_eq!(
         get_terminal_width(),
         80,
@@ -39,8 +39,8 @@ fn test_terminal_width_respects_columns_env() {
 
     // Restore original
     match original {
-        Some(val) => env::set_var("COLUMNS", val),
-        None => env::remove_var("COLUMNS"),
+        Some(val) => unsafe { env::set_var("COLUMNS", val) },
+        None => unsafe { env::remove_var("COLUMNS") },
     }
 }
 
