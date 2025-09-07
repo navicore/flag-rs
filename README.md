@@ -34,7 +34,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-flag-rs = "0.6"
+flag-rs = "0.8"
 ```
 
 ## Quick Start
