@@ -7,6 +7,21 @@
 use crate::command::Command;
 use std::fmt::Write;
 
+/// Safe writeln macro that handles the rare case where writing to String fails
+/// Writing to String should virtually never fail except in extreme memory conditions
+macro_rules! safe_writeln {
+    ($dst:expr) => {
+        if writeln!($dst).is_err() {
+            eprintln!("Warning: Failed to write to completion script buffer");
+        }
+    };
+    ($dst:expr, $($arg:tt)*) => {
+        if writeln!($dst, $($arg)*).is_err() {
+            eprintln!("Warning: Failed to write to completion script buffer");
+        }
+    };
+}
+
 /// Supported shell types for completion generation
 ///
 /// This enum represents the shells for which we can generate completion scripts.
@@ -83,76 +98,72 @@ impl Command {
     fn generate_bash_completion(&self) -> String {
         let mut script = String::new();
 
-        writeln!(&mut script, "# Bash completion for {}", self.name()).unwrap();
-        writeln!(&mut script, "_{}_complete() {{", self.name()).unwrap();
-        writeln!(&mut script, "    local cur prev words cword").unwrap();
-        writeln!(
+        safe_writeln!(&mut script, "# Bash completion for {}", self.name());
+        safe_writeln!(&mut script, "_{}_complete() {{", self.name());
+        safe_writeln!(&mut script, "    local cur prev words cword");
+        safe_writeln!(
             &mut script,
             "    _get_comp_words_by_ref -n : cur prev words cword"
-        )
-        .unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script);
+        safe_writeln!(
             &mut script,
             "    # Call our binary with special completion env var"
-        )
-        .unwrap();
-        writeln!(&mut script, "    local IFS=$'\\n'").unwrap();
-        writeln!(&mut script, "    local response").unwrap();
-        writeln!(&mut script, "    response=$({}_COMPLETE=bash \"${{words[0]}}\" __complete \"${{words[@]:1:$((cword-1))}}\" \"$cur\" 2>/dev/null)", self.name().to_uppercase()).unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "    if [[ -n \"$response\" ]]; then").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "    local IFS=$'\\n'");
+        safe_writeln!(&mut script, "    local response");
+        safe_writeln!(
+            &mut script,
+            "    response=$({}_COMPLETE=bash \"${{words[0]}}\" __complete \"${{words[@]:1:$((cword-1))}}\" \"$cur\" 2>/dev/null)",
+            self.name().to_uppercase()
+        );
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "    if [[ -n \"$response\" ]]; then");
+        safe_writeln!(
             &mut script,
             "        # Use printf to handle each line separately"
-        )
-        .unwrap();
-        writeln!(&mut script, "        local lines=()").unwrap();
-        writeln!(&mut script, "        local help_messages=()").unwrap();
-        writeln!(&mut script, "        while IFS= read -r line; do").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "        local lines=()");
+        safe_writeln!(&mut script, "        local help_messages=()");
+        safe_writeln!(&mut script, "        while IFS= read -r line; do");
+        safe_writeln!(
             &mut script,
             "            if [[ \"$line\" == _activehelp_* ]]; then"
-        )
-        .unwrap();
-        writeln!(&mut script, "                # Extract help message").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "                # Extract help message");
+        safe_writeln!(
             &mut script,
             "                help_messages+=(\"${{line#_activehelp_ }}\")"
-        )
-        .unwrap();
-        writeln!(&mut script, "            else").unwrap();
-        writeln!(&mut script, "                lines+=(\"$line\")").unwrap();
-        writeln!(&mut script, "            fi").unwrap();
-        writeln!(&mut script, "        done <<< \"$response\"").unwrap();
-        writeln!(&mut script, "        COMPREPLY=( \"${{lines[@]}}\" )").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "        # Display help messages if any").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "            else");
+        safe_writeln!(&mut script, "                lines+=(\"$line\")");
+        safe_writeln!(&mut script, "            fi");
+        safe_writeln!(&mut script, "        done <<< \"$response\"");
+        safe_writeln!(&mut script, "        COMPREPLY=( \"${{lines[@]}}\" )");
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "        # Display help messages if any");
+        safe_writeln!(
             &mut script,
             "        if [[ ${{#help_messages[@]}} -gt 0 ]]; then"
-        )
-        .unwrap();
-        writeln!(&mut script, "            printf '\\n'").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "            printf '\\n'");
+        safe_writeln!(
             &mut script,
             "            for msg in \"${{help_messages[@]}}\"; do"
-        )
-        .unwrap();
-        writeln!(&mut script, "                printf '%s\\n' \"$msg\"").unwrap();
-        writeln!(&mut script, "            done").unwrap();
-        writeln!(&mut script, "            printf '\\n'").unwrap();
-        writeln!(&mut script, "        fi").unwrap();
-        writeln!(&mut script, "    fi").unwrap();
-        writeln!(&mut script, "}}").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "                printf '%s\\n' \"$msg\"");
+        safe_writeln!(&mut script, "            done");
+        safe_writeln!(&mut script, "            printf '\\n'");
+        safe_writeln!(&mut script, "        fi");
+        safe_writeln!(&mut script, "    fi");
+        safe_writeln!(&mut script, "}}");
+        safe_writeln!(&mut script);
+        safe_writeln!(
             &mut script,
             "complete -F _{}_complete {}",
             self.name(),
             self.name()
-        )
-        .unwrap();
+        );
 
         script
     }
@@ -160,139 +171,128 @@ impl Command {
     fn generate_zsh_completion(&self) -> String {
         let mut script = String::new();
 
-        writeln!(&mut script, "#compdef -P {}", self.name()).unwrap();
-        writeln!(&mut script, "# Zsh completion for {}", self.name()).unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "_{}_complete() {{", self.name()).unwrap();
-        writeln!(&mut script, "    local -a completions").unwrap();
-        writeln!(&mut script, "    local IFS=$'\\n'").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(
+        safe_writeln!(&mut script, "#compdef -P {}", self.name());
+        safe_writeln!(&mut script, "# Zsh completion for {}", self.name());
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "_{}_complete() {{", self.name());
+        safe_writeln!(&mut script, "    local -a completions");
+        safe_writeln!(&mut script, "    local IFS=$'\\n'");
+        safe_writeln!(&mut script);
+        safe_writeln!(
             &mut script,
             "    # Get the actual command from the command line"
-        )
-        .unwrap();
-        writeln!(&mut script, "    local cmd=\"${{words[1]}}\"").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "    local cmd=\"${{words[1]}}\"");
+        safe_writeln!(
             &mut script,
             "    if [[ \"$cmd\" != /* ]] && ! command -v \"$cmd\" &>/dev/null; then"
-        )
-        .unwrap();
-        writeln!(
+        );
+        safe_writeln!(
             &mut script,
             "        # If not found in PATH, try relative path"
-        )
-        .unwrap();
-        writeln!(&mut script, "        if [[ -x \"$cmd\" ]]; then").unwrap();
-        writeln!(&mut script, "            cmd=\"./$cmd\"").unwrap();
-        writeln!(&mut script, "        fi").unwrap();
-        writeln!(&mut script, "    fi").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "    # Build completion arguments").unwrap();
-        writeln!(&mut script, "    local -a comp_line").unwrap();
-        writeln!(&mut script, "    comp_line=(\"__complete\")").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "    # Add all words except the command name").unwrap();
-        writeln!(&mut script, "    local i").unwrap();
-        writeln!(&mut script, "    for (( i = 2; i < CURRENT; i++ )); do").unwrap();
-        writeln!(&mut script, "        comp_line+=(\"${{words[$i]}}\")").unwrap();
-        writeln!(&mut script, "    done").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "    # Add the current word being completed").unwrap();
-        writeln!(&mut script, "    comp_line+=(\"${{words[CURRENT]}}\")").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "        if [[ -x \"$cmd\" ]]; then");
+        safe_writeln!(&mut script, "            cmd=\"./$cmd\"");
+        safe_writeln!(&mut script, "        fi");
+        safe_writeln!(&mut script, "    fi");
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "    # Build completion arguments");
+        safe_writeln!(&mut script, "    local -a comp_line");
+        safe_writeln!(&mut script, "    comp_line=(\"__complete\")");
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "    # Add all words except the command name");
+        safe_writeln!(&mut script, "    local i");
+        safe_writeln!(&mut script, "    for (( i = 2; i < CURRENT; i++ )); do");
+        safe_writeln!(&mut script, "        comp_line+=(\"${{words[$i]}}\")");
+        safe_writeln!(&mut script, "    done");
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "    # Add the current word being completed");
+        safe_writeln!(&mut script, "    comp_line+=(\"${{words[CURRENT]}}\")");
+        safe_writeln!(&mut script);
+        safe_writeln!(
             &mut script,
             "    # Call the command with completion environment variable"
-        )
-        .unwrap();
-        writeln!(&mut script, "    local response").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "    local response");
+        safe_writeln!(
             &mut script,
             "    response=$({}_COMPLETE=zsh \"$cmd\" \"${{comp_line[@]}}\" 2>/dev/null)",
             self.name().to_uppercase()
-        )
-        .unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "    if [[ -n \"$response\" ]]; then").unwrap();
-        writeln!(&mut script, "        local -a values").unwrap();
-        writeln!(&mut script, "        local -a descriptions").unwrap();
-        writeln!(&mut script, "        local -a help_messages").unwrap();
-        writeln!(&mut script, "        local line").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "        # Parse response lines").unwrap();
-        writeln!(&mut script, "        while IFS= read -r line; do").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "    if [[ -n \"$response\" ]]; then");
+        safe_writeln!(&mut script, "        local -a values");
+        safe_writeln!(&mut script, "        local -a descriptions");
+        safe_writeln!(&mut script, "        local -a help_messages");
+        safe_writeln!(&mut script, "        local line");
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "        # Parse response lines");
+        safe_writeln!(&mut script, "        while IFS= read -r line; do");
+        safe_writeln!(
             &mut script,
             "            if [[ \"$line\" == _activehelp_::* ]]; then"
-        )
-        .unwrap();
-        writeln!(&mut script, "                # ActiveHelp message").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "                # ActiveHelp message");
+        safe_writeln!(
             &mut script,
             "                help_messages+=(\"${{line#_activehelp_::}}\")"
-        )
-        .unwrap();
-        writeln!(&mut script, "            elif [[ \"$line\" == *:* ]]; then").unwrap();
-        writeln!(&mut script, "                # Line has description").unwrap();
-        writeln!(&mut script, "                values+=(\"${{line%%:*}}\")").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "            elif [[ \"$line\" == *:* ]]; then");
+        safe_writeln!(&mut script, "                # Line has description");
+        safe_writeln!(&mut script, "                values+=(\"${{line%%:*}}\")");
+        safe_writeln!(
             &mut script,
             "                descriptions+=(\"${{line#*:}}\")"
-        )
-        .unwrap();
-        writeln!(&mut script, "            else").unwrap();
-        writeln!(&mut script, "                # No description").unwrap();
-        writeln!(&mut script, "                values+=(\"$line\")").unwrap();
-        writeln!(&mut script, "                descriptions+=(\"\")").unwrap();
-        writeln!(&mut script, "            fi").unwrap();
-        writeln!(&mut script, "        done <<< \"$response\"").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "        # Display ActiveHelp messages if any").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "            else");
+        safe_writeln!(&mut script, "                # No description");
+        safe_writeln!(&mut script, "                values+=(\"$line\")");
+        safe_writeln!(&mut script, "                descriptions+=(\"\")");
+        safe_writeln!(&mut script, "            fi");
+        safe_writeln!(&mut script, "        done <<< \"$response\"");
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "        # Display ActiveHelp messages if any");
+        safe_writeln!(
             &mut script,
             "        if [[ ${{#help_messages[@]}} -gt 0 ]]; then"
-        )
-        .unwrap();
-        writeln!(&mut script, "            local formatted_help=()").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "            local formatted_help=()");
+        safe_writeln!(
             &mut script,
             "            for msg in \"${{help_messages[@]}}\"; do"
-        )
-        .unwrap();
-        writeln!(
+        );
+        safe_writeln!(
             &mut script,
             "                formatted_help+=(\"-- $msg --\")"
-        )
-        .unwrap();
-        writeln!(&mut script, "            done").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "            done");
+        safe_writeln!(
             &mut script,
             "            compadd -x \"${{(j: :)formatted_help}}\""
-        )
-        .unwrap();
-        writeln!(&mut script, "        fi").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "        # Add completions with descriptions").unwrap();
-        writeln!(&mut script, "        if [[ ${{#descriptions[@]}} -gt 0 ]] && [[ -n \"${{descriptions[*]// }}\" ]]; then").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "        fi");
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "        # Add completions with descriptions");
+        safe_writeln!(
+            &mut script,
+            "        if [[ ${{#descriptions[@]}} -gt 0 ]] && [[ -n \"${{descriptions[*]// }}\" ]]; then"
+        );
+        safe_writeln!(
             &mut script,
             "            compadd -Q -d descriptions -a values"
-        )
-        .unwrap();
-        writeln!(&mut script, "        else").unwrap();
-        writeln!(&mut script, "            compadd -Q -a values").unwrap();
-        writeln!(&mut script, "        fi").unwrap();
-        writeln!(&mut script, "    fi").unwrap();
-        writeln!(&mut script, "}}").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "        else");
+        safe_writeln!(&mut script, "            compadd -Q -a values");
+        safe_writeln!(&mut script, "        fi");
+        safe_writeln!(&mut script, "    fi");
+        safe_writeln!(&mut script, "}}");
+        safe_writeln!(&mut script);
+        safe_writeln!(
             &mut script,
             "compdef _{}_complete {}",
             self.name(),
             self.name()
-        )
-        .unwrap();
+        );
 
         script
     }
@@ -300,53 +300,53 @@ impl Command {
     fn generate_fish_completion(&self) -> String {
         let mut script = String::new();
 
-        writeln!(&mut script, "# Fish completion for {}", self.name()).unwrap();
-        writeln!(&mut script, "function __{}_complete", self.name()).unwrap();
-        writeln!(&mut script, "    set -l cmd (commandline -opc)").unwrap();
-        writeln!(&mut script, "    set -l cursor (commandline -C)").unwrap();
-        writeln!(&mut script, "    set -l current (commandline -ct)").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(
+        safe_writeln!(&mut script, "# Fish completion for {}", self.name());
+        safe_writeln!(&mut script, "function __{}_complete", self.name());
+        safe_writeln!(&mut script, "    set -l cmd (commandline -opc)");
+        safe_writeln!(&mut script, "    set -l cursor (commandline -C)");
+        safe_writeln!(&mut script, "    set -l current (commandline -ct)");
+        safe_writeln!(&mut script);
+        safe_writeln!(
             &mut script,
             "    # Call our binary with special completion env var"
-        )
-        .unwrap();
-        writeln!(&mut script, "    set -l response (env {}_COMPLETE=fish $cmd[1] __complete $cmd[2..-1] $current 2>/dev/null)", self.name().to_uppercase()).unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "    # Process response and handle ActiveHelp").unwrap();
-        writeln!(&mut script, "    set -l help_messages").unwrap();
-        writeln!(&mut script, "    for line in $response").unwrap();
-        writeln!(
+        );
+        safe_writeln!(
+            &mut script,
+            "    set -l response (env {}_COMPLETE=fish $cmd[1] __complete $cmd[2..-1] $current 2>/dev/null)",
+            self.name().to_uppercase()
+        );
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "    # Process response and handle ActiveHelp");
+        safe_writeln!(&mut script, "    set -l help_messages");
+        safe_writeln!(&mut script, "    for line in $response");
+        safe_writeln!(
             &mut script,
             "        if string match -q '_activehelp_*' -- $line"
-        )
-        .unwrap();
-        writeln!(&mut script, "            # Extract help message").unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "            # Extract help message");
+        safe_writeln!(
             &mut script,
             "            set -a help_messages (string replace '_activehelp_\t' '' -- $line)"
-        )
-        .unwrap();
-        writeln!(&mut script, "        else").unwrap();
-        writeln!(&mut script, "            echo $line").unwrap();
-        writeln!(&mut script, "        end").unwrap();
-        writeln!(&mut script, "    end").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(&mut script, "    # Display help messages if any").unwrap();
-        writeln!(&mut script, "    if test (count $help_messages) -gt 0").unwrap();
-        writeln!(&mut script, "        for msg in $help_messages").unwrap();
-        writeln!(&mut script, "            echo \"» $msg\" >&2").unwrap();
-        writeln!(&mut script, "        end").unwrap();
-        writeln!(&mut script, "    end").unwrap();
-        writeln!(&mut script, "end").unwrap();
-        writeln!(&mut script).unwrap();
-        writeln!(
+        );
+        safe_writeln!(&mut script, "        else");
+        safe_writeln!(&mut script, "            echo $line");
+        safe_writeln!(&mut script, "        end");
+        safe_writeln!(&mut script, "    end");
+        safe_writeln!(&mut script);
+        safe_writeln!(&mut script, "    # Display help messages if any");
+        safe_writeln!(&mut script, "    if test (count $help_messages) -gt 0");
+        safe_writeln!(&mut script, "        for msg in $help_messages");
+        safe_writeln!(&mut script, "            echo \"» $msg\" >&2");
+        safe_writeln!(&mut script, "        end");
+        safe_writeln!(&mut script, "    end");
+        safe_writeln!(&mut script, "end");
+        safe_writeln!(&mut script);
+        safe_writeln!(
             &mut script,
             "complete -c {} -f -a '(__{}_complete)'",
             self.name(),
             self.name()
-        )
-        .unwrap();
+        );
 
         script
     }
