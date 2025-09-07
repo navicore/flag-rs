@@ -1061,7 +1061,10 @@ impl Command {
                     }
                 } else if prev.starts_with('-') && prev.len() == 2 {
                     // Handle short flag completions
-                    let short_flag = prev.chars().nth(1).unwrap();
+                    let Some(short_flag) = prev.chars().nth(1) else {
+                        // This should not happen given the length check, but handle gracefully
+                        return Ok(vec![]);
+                    };
                     if let Some(flag) = current_cmd.find_flag_by_short(short_flag) {
                         if let Some(ref completion_func) = flag.completion {
                             let result = completion_func(&ctx, &current_word)?;
