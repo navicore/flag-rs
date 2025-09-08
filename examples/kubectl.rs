@@ -6,7 +6,7 @@ fn main() {
 
     let args: Vec<String> = env::args().skip(1).collect();
     if let Err(e) = app.execute(args) {
-        eprintln!("Error: {e}");
+        eprintln!("Error: {e:?}");
         std::process::exit(1);
     }
 }
@@ -46,6 +46,30 @@ fn build_get_command() -> Command {
     CommandBuilder::new("get")
         .short("Display one or many resources")
         .long("Display one or many resources. Prints a table of the most important information about the specified resources.")
+        .flag(
+            Flag::new("limit")
+                .short('l')
+                .usage("Maximum number of resources to display")
+                .value_type(FlagType::String)
+        )
+        .flag_completion("limit", |_ctx, prefix| {
+            let common_limits = vec![
+                ("10", "Display 10 items"),
+                ("20", "Display 20 items"),
+                ("50", "Display 50 items"),
+                ("100", "Display 100 items"),
+                ("all", "Display all items (no limit)"),
+            ];
+
+            let mut result = CompletionResult::new();
+            for (limit, description) in common_limits {
+                if limit.starts_with(prefix) {
+                    result = result.add_with_description(limit.to_string(), description.to_string());
+                }
+            }
+
+            Ok(result)
+        })
         .subcommand(build_get_pods())
         .subcommand(build_get_services())
         .subcommand(build_get_deployments())
