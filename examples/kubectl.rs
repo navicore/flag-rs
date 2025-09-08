@@ -169,7 +169,7 @@ fn build_describe_command() -> Command {
             Flag::new("output")
                 .short('o')
                 .usage("Output format")
-                .value_type(FlagType::String)
+                .value_type(FlagType::String),
         )
         .run(|_ctx| {
             println!("Describe command - add resource type subcommands");
