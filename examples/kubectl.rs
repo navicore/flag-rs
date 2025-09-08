@@ -296,6 +296,23 @@ fn build_completion_command() -> Command {
     CommandBuilder::new("completion")
         .short("Generate shell completion scripts")
         .long("Generate shell completion scripts for kubectl")
+        .arg_completion(|_ctx, prefix| {
+            let shells = vec![
+                ("bash", "Bash shell completion"),
+                ("zsh", "Zsh shell completion"),
+                ("fish", "Fish shell completion"),
+            ];
+
+            let mut result = CompletionResult::new();
+            for (shell, description) in shells {
+                if shell.starts_with(prefix) {
+                    result =
+                        result.add_with_description(shell.to_string(), description.to_string());
+                }
+            }
+
+            Ok(result)
+        })
         .run(|ctx| {
             let shell_name = ctx.args().first().ok_or_else(|| {
                 flag_rs::Error::ArgumentParsing(
