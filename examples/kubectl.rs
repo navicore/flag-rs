@@ -165,6 +165,12 @@ fn build_get_deployments() -> Command {
 fn build_describe_command() -> Command {
     CommandBuilder::new("describe")
         .short("Show details of a specific resource")
+        .flag(
+            Flag::new("output")
+                .short('o')
+                .usage("Output format")
+                .value_type(FlagType::String)
+        )
         .run(|_ctx| {
             println!("Describe command - add resource type subcommands");
             Ok(())
