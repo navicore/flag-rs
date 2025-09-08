@@ -116,8 +116,7 @@ impl CompletionFormat {
                 let escaped_value = value.replace(':', "\\:");
 
                 if desc.is_empty() {
-                    // Even without description, use the standard format
-                    // Match the working format: value:value    - description
+                    // Even without description, use the standard format for zsh compatibility
                     format!("{escaped_value}:{escaped_value}    - ")
                 } else {
                     // Zsh format: value:description

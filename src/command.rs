@@ -80,9 +80,8 @@ fn collect_all_flags_with_descriptions(
     for (flag_name, flag) in &current.flags {
         if flag_name.starts_with(prefix) {
             let formatted_flag = format!("--{flag_name}");
-            *result = result
-                .clone()
-                .add_with_description(formatted_flag, flag.usage.clone());
+            result.values.push(formatted_flag);
+            result.descriptions.push(flag.usage.clone());
         }
     }
 
@@ -1026,7 +1025,7 @@ impl Command {
 
         // Now determine what to complete
         if current_word.starts_with("--") {
-            // Complete long flags
+            // Complete long flags only (when user explicitly started typing --)
             let prefix = current_word.trim_start_matches("--");
             let mut flag_completions = CompletionResult::new();
 
@@ -1083,12 +1082,34 @@ impl Command {
                 }
             }
 
-            // Complete subcommands or arguments
-            Ok(current_cmd.get_completion_suggestions(
+            // Complete subcommands, arguments AND flags together
+            let mut combined_completions = CompletionResult::new();
+
+            // Get subcommand/argument completions
+            let subcommand_suggestions = current_cmd.get_completion_suggestions(
                 &current_word,
                 Some(&ctx),
                 shell_type.as_deref(),
-            ))
+            );
+
+            // Add flags that don't start with current_word (so user can discover them)
+            // Only add flags if current_word is empty or doesn't look like it's trying to complete a specific subcommand
+            if current_word.is_empty()
+                || !current_cmd
+                    .subcommands
+                    .keys()
+                    .any(|name| name.starts_with(&current_word))
+            {
+                collect_all_flags_with_descriptions(current_cmd, &mut combined_completions, "");
+            }
+
+            // Convert subcommand suggestions to CompletionResult format and combine
+            let format = CompletionFormat::from_shell_type(shell_type.as_deref());
+            let mut final_suggestions = subcommand_suggestions;
+            let flag_suggestions = format.format(&combined_completions, Some(&ctx));
+            final_suggestions.extend(flag_suggestions);
+
+            Ok(final_suggestions)
         }
     }
 
