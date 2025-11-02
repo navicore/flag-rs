@@ -21,29 +21,15 @@ a clean, modular architecture for building sophisticated CLI applications.
 Flag-rs solves specific pain points that other CLI frameworks struggle with:
 
 1. **Dynamic completions that actually work** - Query APIs, databases, or any runtime state at tab-press time, just like `kubectl` does when completing pod names
-2. **Reliable zsh subcommand completion** - Multi-level commands like `myapp deploy status` get proper tab completion in zsh (unlike clap, which has known issues with zsh subcommand completion)
-3. **Unlimited command nesting** - Build deeply nested command hierarchies like `kubectl get pods` with full completion support at every level
-
-I've struggled for a long time trying to get the leading command line processing crate to provide working zsh completion for nested subcommands - hence this new crate.
-
-## Flag-rs vs Clap
-
-| Feature | Flag-rs | Clap |
-|---------|---------|------|
-| Nested subcommand completion in zsh | ✅ Works | ⚠️ Known issues |
-| Dynamic runtime completions | ✅ Built-in | ⚠️ Limited support |
-| Multi-level command nesting | ✅ Unlimited | ✅ Supported |
-| Dependencies | 0 | ~50+ |
-| Maturity | New (2024) | Battle-tested |
-| Community size | Small | Large |
-| Documentation | Growing | Extensive |
+2. **Reliable zsh subcommand completion** - Multi-level commands like `myapp deploy status` get proper tab completion in various shells.
 
 ## Why Not Flag-rs?
 
 The Flag-rs implementation may be naive - the leading crate,
 [Clap](https://github.com/clap-rs/clap), is very well regarded and meets the
 needs of a huge knowledgeable user base. Choose clap if you need maximum stability,
-extensive documentation, and don't require dynamic completions or zsh subcommand completion.
+
+extensive documentation, and don't require dynamic completions.
 
 ## Installation
 
@@ -259,19 +245,19 @@ CommandBuilder::new("get")
         let cache = Arc::clone(&cache);
         move |ctx, prefix| {
             let key = CompletionCache::make_key(
-                &["get".to_string()], 
-                prefix, 
+                &["get".to_string()],
+                prefix,
                 ctx.flags()
             );
-            
+
             // Check cache first
             if let Some(cached) = cache.get(&key) {
                 return Ok(cached);
             }
-            
+
             // Expensive operation
             let result = fetch_from_api()?;
-            
+
             // Cache the result
             cache.put(key, result.clone());
             Ok(result)
