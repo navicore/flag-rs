@@ -7,26 +7,43 @@ a clean, modular architecture for building sophisticated CLI applications.
 ## Key Features
 
 - **Zero Dependencies** - Pure Rust implementation with no external crates
+- **Multi-Level Nested Commands** - Full support for commands like `myapp deploy status` with unlimited nesting
 - **Dynamic Runtime Completions** - Generate completions based on runtime state (like kubectl)
+- **Working Zsh Subcommand Completion** - Tab completion that actually works for nested commands in zsh, bash, and fish
 - **Self-Registering Commands** - Commands can register themselves with parent commands
 - **Modular Architecture** - Organize commands in separate files/modules
-- **Shell Completion Support** - Generate completion scripts for bash, zsh, and fish
 - **Hierarchical Flag Inheritance** - Global flags are available to all subcommands
 - **Idiomatic Error Handling** - Uses standard Rust `Result` types
 - **Colored Output** - Beautiful help messages with ANSI color support (respects NO_COLOR and terminal detection)
 
 ## Why Flag-rs?
 
-Flag-rs enables dynamic completions that can query APIs, databases, or any runtime
-state - just like `kubectl` does when completing pod names.  I've struggled and
-failed for a long time at modifying the leading command line processing crate to
-work this way - hence this new crate.
+Flag-rs solves specific pain points that other CLI frameworks struggle with:
+
+1. **Dynamic completions that actually work** - Query APIs, databases, or any runtime state at tab-press time, just like `kubectl` does when completing pod names
+2. **Reliable zsh subcommand completion** - Multi-level commands like `myapp deploy status` get proper tab completion in zsh (unlike clap, which has known issues with zsh subcommand completion)
+3. **Unlimited command nesting** - Build deeply nested command hierarchies like `kubectl get pods` with full completion support at every level
+
+I've struggled for a long time trying to get the leading command line processing crate to provide working zsh completion for nested subcommands - hence this new crate.
+
+## Flag-rs vs Clap
+
+| Feature | Flag-rs | Clap |
+|---------|---------|------|
+| Nested subcommand completion in zsh | ✅ Works | ⚠️ Known issues |
+| Dynamic runtime completions | ✅ Built-in | ⚠️ Limited support |
+| Multi-level command nesting | ✅ Unlimited | ✅ Supported |
+| Dependencies | 0 | ~50+ |
+| Maturity | New (2024) | Battle-tested |
+| Community size | Small | Large |
+| Documentation | Growing | Extensive |
 
 ## Why Not Flag-rs?
 
 The Flag-rs implementation may be naive - the leading crate,
 [Clap](https://github.com/clap-rs/clap), is very well regarded and meets the
-needs of a huge knowledgeable user base.
+needs of a huge knowledgeable user base. Choose clap if you need maximum stability,
+extensive documentation, and don't require dynamic completions or zsh subcommand completion.
 
 ## Installation
 
@@ -84,6 +101,101 @@ fn build_serve_command() -> Command {
         .build()
 }
 ```
+
+## Nested Commands with Tab Completion
+
+Flag-rs fully supports multi-level command hierarchies with working tab completion at every level. This is especially valuable for zsh users who have experienced issues with other frameworks.
+
+### Building Nested Commands
+
+Create commands like `myapp deploy status` and `myapp deploy publish`:
+
+```rust
+use flag_rs::{CommandBuilder, Context, CompletionResult};
+
+fn main() {
+    let app = CommandBuilder::new("myapp")
+        .short("My application")
+        .subcommand(build_deploy_command())
+        .build();
+
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    app.execute(args).unwrap();
+}
+
+fn build_deploy_command() -> Command {
+    CommandBuilder::new("deploy")
+        .short("Deployment commands")
+        .subcommand(
+            CommandBuilder::new("status")
+                .short("Check deployment status")
+                .arg_completion(|ctx, prefix| {
+                    // Tab completion for deployment names
+                    let deployments = vec!["web-api", "worker", "database"];
+                    Ok(CompletionResult::new()
+                        .extend(deployments.into_iter()
+                            .filter(|d| d.starts_with(prefix))
+                            .map(String::from)
+                            .collect()))
+                })
+                .run(|ctx| {
+                    let deployment = ctx.args().first()
+                        .ok_or("Deployment name required")?;
+                    println!("Status of {}: Running", deployment);
+                    Ok(())
+                })
+                .build()
+        )
+        .subcommand(
+            CommandBuilder::new("publish")
+                .short("Publish a deployment")
+                .run(|ctx| {
+                    println!("Publishing deployment...");
+                    Ok(())
+                })
+                .build()
+        )
+        .build()
+}
+```
+
+### Tab Completion Behavior
+
+With the above setup:
+
+- `myapp <TAB>` → shows `deploy` (and any other root commands)
+- `myapp deploy <TAB>` → shows `status`, `publish`
+- `myapp deploy status <TAB>` → shows `web-api`, `worker`, `database`
+
+This works correctly in **bash**, **zsh**, and **fish** shells.
+
+### Arbitrary Nesting Depth
+
+The architecture supports unlimited nesting levels:
+
+```rust
+CommandBuilder::new("myapp")           // Level 1
+    .subcommand(
+        CommandBuilder::new("cloud")    // Level 2
+            .subcommand(
+                CommandBuilder::new("compute")  // Level 3
+                    .subcommand(
+                        CommandBuilder::new("instances")  // Level 4
+                            .subcommand(
+                                CommandBuilder::new("list")  // Level 5
+                                    .run(|ctx| { /* ... */ })
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .build()
+            )
+            .build()
+    )
+    .build()
+```
+
+Results in: `myapp cloud compute instances list` with tab completion at each level.
 
 ## Dynamic Completions
 
@@ -216,7 +328,9 @@ pub fn register(parent: &mut Command) {
 
 ## Shell Completions
 
-Generate completion scripts for popular shells:
+Flag-rs generates working completion scripts for bash, zsh, and fish. Unlike some frameworks, **nested subcommands work correctly in zsh**.
+
+### Adding Completion Support
 
 ```rust
 // Add a completion command to your CLI
@@ -239,18 +353,31 @@ CommandBuilder::new("completion")
     .build()
 ```
 
-Then users can enable completions:
+### Enabling Completions
+
+Users can enable completions in their shell:
 
 ```bash
 # Bash
 source <(myapp completion bash)
 
-# Zsh
+# Zsh - works correctly for nested subcommands!
 source <(myapp completion zsh)
 
 # Fish
 myapp completion fish | source
 ```
+
+### What Works
+
+All shells support:
+- ✅ Root command completion
+- ✅ Nested subcommand completion (including zsh!)
+- ✅ Flag completion with descriptions (zsh and fish show descriptions)
+- ✅ Dynamic argument completion
+- ✅ Flag value completion
+
+The completion system navigates the full command hierarchy, so typing `myapp deploy <TAB>` correctly shows subcommands at that level, even in zsh.
 
 ## Flag Types
 
@@ -332,13 +459,28 @@ pub enum Error {
 
 See the `examples/` directory for complete examples:
 
-- `kubectl.rs` - A simple kubectl-like CLI demonstrating dynamic completions
-- `kubectl_modular/` - A modular kubectl implementation showing command self-registration
+- **`kubectl.rs`** - A kubectl-like CLI demonstrating **three-level nested commands** (`kubectl get pods`) with dynamic completions and working zsh tab completion
+- **`kubectl_modular/`** - A modular kubectl implementation showing command self-registration across multiple files
 - `advanced_flags_demo.rs` - Demonstrates advanced flag types and constraints
 - `caching_demo.rs` - Shows completion caching for expensive operations
 - `timeout_demo.rs` - Demonstrates timeout protection for slow completions
 - `memory_optimization_demo.rs` - Shows memory optimization techniques
 - `benchmark.rs` - Performance benchmarking suite
+
+**Quick test of nested commands with completion:**
+
+```bash
+# Build the kubectl example
+cargo build --example kubectl
+
+# Try the three-level command structure
+./target/debug/examples/kubectl get pods nginx-7fb96c846b-8xvnl
+
+# Generate and test zsh completion
+source <(./target/debug/examples/kubectl completion zsh)
+kubectl get <TAB>           # Shows: pods, services, deployments
+kubectl get pods <TAB>      # Shows actual pod names with dynamic completion
+```
 
 ## Performance & Memory Optimization
 
