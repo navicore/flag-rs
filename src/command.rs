@@ -8,7 +8,7 @@ use crate::completion_format::CompletionFormat;
 use crate::context::Context;
 use crate::error::{Error, Result};
 use crate::flag::{Flag, FlagConstraint, FlagType, FlagValue};
-use crate::suggestion::{find_suggestions, DEFAULT_SUGGESTION_DISTANCE};
+use crate::suggestion::{DEFAULT_SUGGESTION_DISTANCE, find_suggestions};
 use crate::terminal::{format_help_entry, get_terminal_width, wrap_text_to_terminal};
 use crate::validator::ArgValidator;
 use std::collections::{HashMap, HashSet};
