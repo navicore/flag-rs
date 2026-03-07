@@ -8,7 +8,7 @@ use crate::completion_format::CompletionFormat;
 use crate::context::Context;
 use crate::error::{Error, Result};
 use crate::flag::{Flag, FlagConstraint, FlagType, FlagValue};
-use crate::suggestion::{DEFAULT_SUGGESTION_DISTANCE, find_suggestions};
+use crate::suggestion::{find_suggestions, DEFAULT_SUGGESTION_DISTANCE};
 use crate::terminal::{format_help_entry, get_terminal_width, wrap_text_to_terminal};
 use crate::validator::ArgValidator;
 use std::collections::{HashMap, HashSet};
@@ -203,7 +203,8 @@ impl Command {
     /// root.add_command(serve);
     /// ```
     pub fn add_command(&mut self, mut cmd: Self) {
-        cmd.parent = Some(self as *mut Self);
+        //cmd.parent = Some(self as *mut Self);
+        cmd.parent = Some(std::ptr::from_mut::<Self>(self));
         self.subcommands.insert(cmd.name.clone(), cmd);
     }
 
@@ -519,7 +520,7 @@ impl Command {
             if flag.required && !provided_flag_names.contains(flag_name) {
                 return Err(Error::flag_parsing_with_suggestions(
                     format!("Required flag '--{flag_name}' not provided"),
-                    flag_name.to_string(),
+                    flag_name.clone(),
                     vec![format!("add --{flag_name} <value>")],
                 ));
             }

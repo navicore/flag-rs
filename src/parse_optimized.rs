@@ -48,7 +48,7 @@ where
                 {
                     let value = &args[i + 1];
                     flag.parse_value(value)?;
-                    parsed_flags.insert(long_flag.to_string(), value.to_string());
+                    parsed_flags.insert(long_flag.to_string(), value.clone());
                     i += 1;
                 } else {
                     parsed_flags.insert(long_flag.to_string(), "true".to_string());
@@ -73,7 +73,7 @@ where
                     {
                         let value = &args[i + 1];
                         flag.parse_value(value)?;
-                        parsed_flags.insert(flag.name.clone(), value.to_string());
+                        parsed_flags.insert(flag.name.clone(), value.clone());
                         i += 1;
                     } else {
                         parsed_flags.insert(flag.name.clone(), "true".to_string());

@@ -2,7 +2,7 @@
 
 # Deny common mistakes and enforce good practices
 avoid-breaking-exported-api = false
-msrv = "1.70.0"
+msrv = "1.79.0"
 
 # Warn on all pedantic lints
 warn-on-all-wildcard-imports = true
