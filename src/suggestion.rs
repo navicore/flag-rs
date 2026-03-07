@@ -26,9 +26,9 @@ pub fn levenshtein_distance(s1: &str, s2: &str) -> usize {
     for (i, row) in matrix.iter_mut().enumerate().take(len1 + 1) {
         row[0] = i;
     }
-    for j in 0..=len2 {
+    (0..=len2).for_each(|j| {
         matrix[0][j] = j;
-    }
+    });
 
     // Fill the matrix
     let chars1: Vec<char> = s1.chars().collect();
