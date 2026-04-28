@@ -1,3 +1,8 @@
+<!-- ghmig:moved -->
+> **This repository has moved to [https://git.navicore.tech/navicore/flag-rs](https://git.navicore.tech/navicore/flag-rs).**
+>
+> The GitHub copy is archived and no longer maintained.
+
 # Flag-rs - A Cobra-inspired CLI Framework for Rust
 
 Flag-rs is a command-line interface (CLI) framework for Rust inspired by Go's Cobra
@@ -586,4 +591,3 @@ MIT
 ```
 source <(./target/debug/examples/kubectl completion zsh)
 ```
-
